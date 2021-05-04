@@ -21,6 +21,7 @@ interface ComptrollerMethods {
   _setMaxAssets(encodedNumber): Sendable<number>
   _setLiquidationIncentive(encodedNumber): Sendable<number>
   _supportMarket(string): Sendable<number>
+  _setCreditLimit(protocol: string, market: string, creditLimit: encodedNumber): Sendable<void>
   _setPriceOracle(string): Sendable<number>
   _setCollateralFactor(string, encodedNumber): Sendable<number>
   _setCloseFactor(encodedNumber): Sendable<number>

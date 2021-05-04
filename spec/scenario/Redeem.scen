@@ -225,3 +225,27 @@ Test "Mint, Enter, then Redeem Too Much (collateral factor: 0.1)"
     AllowFailures
     Redeem Geoff 501e8 cZRX
     Assert Failure COMPTROLLER_REJECTION REDEEM_COMPTROLLER_REJECTION INSUFFICIENT_LIQUIDITY
+
+Test "Mint, Enter, Borrow, SetCreditLimit and then Redeem All"
+    NewComptroller price:1.0
+    NewCToken ZRX cZRX initialExchangeRate:1e9
+    NewCToken BAT cBAT initialExchangeRate:1e9
+    Give cBAT 10e18 BAT -- Faucet some bat to borrow
+    Support cZRX collateralFactor:0.5
+    Support cBAT collateralFactor:0.5
+    Prep Geoff Some ZRX cZRX
+    Mint Geoff 100e18 cZRX
+    EnterMarkets Geoff cZRX
+    Borrow Geoff 1e18 cBAT
+    Assert Equal (cToken cBAT BorrowBalance Geoff) (Exactly 1e18)
+    Assert Equal (Erc20 BAT TokenBalance Geoff) (Exactly 1e18)
+    Assert Equal (Erc20 BAT TokenBalance cBAT) (Exactly 9e18)
+    Assert Equal (Comptroller MembershipLength Geoff) (Exactly 2)
+    Assert True (Comptroller CheckMembership Geoff cZRX)
+    Assert True (Comptroller CheckMembership Geoff cBAT)
+    -- Set credit limit
+    Comptroller SetCreditLimit Geoff cBAT 10000e18
+    -- Redeem all
+    Redeem Geoff 1000e8 cZRX
+    Assert Equal (Erc20 cZRX TokenBalance Geoff) Zero
+    Assert Equal (Erc20 ZRX TokenBalance Geoff) 100e18
