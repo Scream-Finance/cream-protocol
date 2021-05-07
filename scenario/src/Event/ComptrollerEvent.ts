@@ -106,6 +106,16 @@ async function supportMarket(world: World, from: string, comptroller: Comptrolle
   return world;
 }
 
+async function setCreditLimit(world: World, from: string, comptroller: Comptroller, protocol: string, market: string, creditLimit: NumberV): Promise<World> {
+  let invokation = await invoke(world, comptroller.methods._setCreditLimit(protocol, market, creditLimit.encode()), from, ComptrollerErrorReporter);
+
+  return addAction(
+    world,
+    `Set ${market} credit limit of ${protocol} to ${creditLimit.show()}`,
+    invokation
+  );
+}
+
 async function unlistMarket(world: World, from: string, comptroller: Comptroller, cToken: CToken): Promise<World> {
   let invokation = await invoke(world, comptroller.methods.unlist(cToken._address), from, ComptrollerErrorReporter);
 
@@ -468,6 +478,20 @@ export function comptrollerCommands() {
         new Arg("cToken", getCTokenV)
       ],
       (world, from, {comptroller, cToken}) => supportMarket(world, from, comptroller, cToken)
+    ),
+    new Command<{comptroller: Comptroller, protocol: AddressV, market: AddressV, creditLimit: NumberV}>(`
+        #### SetCreditLimit
+        * "Comptroller SetCreditLimit <Protocol> <Market> <CreditLimit>" - Sets the market credit limit of a protocol
+        * E.g. "Comptroller SetCreditLimit Geoff cZRX 100"
+      `,
+      'SetCreditLimit',
+      [
+        new Arg('comptroller', getComptroller, {implicit: true}),
+        new Arg('protocol', getAddressV),
+        new Arg('market', getAddressV),
+        new Arg('creditLimit', getNumberV)
+      ],
+      (world, from, {comptroller, protocol, market, creditLimit}) => setCreditLimit(world, from, comptroller, protocol.val, market.val, creditLimit)
     ),
     new Command<{comptroller: Comptroller, cToken: CToken}>(`
         #### UnList
