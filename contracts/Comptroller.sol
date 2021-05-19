@@ -225,9 +225,7 @@ contract Comptroller is ComptrollerV5Storage, ComptrollerInterface, ComptrollerE
     function mintAllowed(address cToken, address minter, uint mintAmount) external returns (uint) {
         // Pausing is a very serious situation - we revert to sound the alarms
         require(!mintGuardianPaused[cToken], "mint is paused");
-
-        // Shh - currently unused
-        minter;
+        require(!isCreditAccount(minter, cToken), "credit account cannot mint");
 
         if (!markets[cToken].isListed) {
             return uint(Error.MARKET_NOT_LISTED);
@@ -480,6 +478,8 @@ contract Comptroller is ComptrollerV5Storage, ComptrollerInterface, ComptrollerE
         address liquidator,
         address borrower,
         uint repayAmount) external returns (uint) {
+        require(!isCreditAccount(borrower, cTokenBorrowed), "cannot liquidate credit account");
+
         // Shh - currently unused
         liquidator;
 
@@ -551,6 +551,7 @@ contract Comptroller is ComptrollerV5Storage, ComptrollerInterface, ComptrollerE
         uint seizeTokens) external returns (uint) {
         // Pausing is a very serious situation - we revert to sound the alarms
         require(!seizeGuardianPaused, "seize is paused");
+        require(!isCreditAccount(borrower, cTokenBorrowed), "cannot sieze from credit account");
 
         // Shh - currently unused
         seizeTokens;
@@ -609,6 +610,7 @@ contract Comptroller is ComptrollerV5Storage, ComptrollerInterface, ComptrollerE
     function transferAllowed(address cToken, address src, address dst, uint transferTokens) external returns (uint) {
         // Pausing is a very serious situation - we revert to sound the alarms
         require(!transferGuardianPaused, "transfer is paused");
+        require(!isCreditAccount(dst, cToken), "cannot transfer to a credit account");
 
         // Currently the only consideration is whether or not
         //  the src is allowed to redeem this many tokens
@@ -643,6 +645,16 @@ contract Comptroller is ComptrollerV5Storage, ComptrollerInterface, ComptrollerE
         if (false) {
             maxAssets = maxAssets;
         }
+    }
+
+    /**
+     * @notice Check if the account is a credit account
+     * @param account The account needs to be checked
+     * @param cToken The market
+     * @return The account is a credit account or not
+     */
+    function isCreditAccount(address account, address cToken) public view returns (bool) {
+        return creditLimits[account][cToken] > 0;
     }
 
     /*** Liquidity/Liquidation Calculations ***/
