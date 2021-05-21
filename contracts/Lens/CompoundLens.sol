@@ -3,6 +3,7 @@ pragma experimental ABIEncoderV2;
 
 import "../CErc20.sol";
 import "../CToken.sol";
+import "../CTokenInterfaces.sol";
 import "../PriceOracle.sol";
 import "../BEP20Interface.sol";
 import "../Governance/Comp.sol";
@@ -45,6 +46,7 @@ contract CompoundLens {
         uint cTokenDecimals;
         uint underlyingDecimals;
         uint version;
+        uint collateralCap;
     }
 
     function cTokenMetadata(CToken cToken) public returns (CTokenMetadata memory) {
@@ -53,6 +55,7 @@ contract CompoundLens {
         (bool isListed, uint collateralFactorMantissa, , uint version) = comptroller.markets(address(cToken));
         address underlyingAssetAddress;
         uint underlyingDecimals;
+        uint collateralCap;
 
         if (compareStrings(cToken.symbol(), "crBNB")) {
             underlyingAssetAddress = address(0);
@@ -61,6 +64,10 @@ contract CompoundLens {
             CErc20 cErc20 = CErc20(address(cToken));
             underlyingAssetAddress = cErc20.underlying();
             underlyingDecimals = BEP20Interface(cErc20.underlying()).decimals();
+        }
+
+        if (version == 1) {
+            collateralCap = CCollateralCapErc20Interface(address(cToken)).collateralCap();
         }
 
         return CTokenMetadata({
@@ -78,7 +85,8 @@ contract CompoundLens {
             underlyingAssetAddress: underlyingAssetAddress,
             cTokenDecimals: cToken.decimals(),
             underlyingDecimals: underlyingDecimals,
-            version: version
+            version: version,
+            collateralCap: collateralCap
         });
     }
 
