@@ -154,3 +154,8 @@ contract ComptrollerV5Storage is ComptrollerV4Storage {
     // @notice creditLimits allowed specific protocols to borrow and repay specific markets without collateral.
     mapping(address => mapping(address => uint)) public creditLimits;
 }
+
+contract ComptrollerV6Storage is ComptrollerV5Storage {
+    // @notice flashloanGuardianPaused can pause flash loan as a safety mechanism.
+    mapping(address => bool) public flashloanGuardianPaused;
+}

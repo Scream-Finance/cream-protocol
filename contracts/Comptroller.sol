@@ -13,7 +13,7 @@ import "./Governance/Comp.sol";
  * @title Compound's Comptroller Contract
  * @author Compound (modified by Arr00)
  */
-contract Comptroller is ComptrollerV5Storage, ComptrollerInterface, ComptrollerErrorReporter, Exponential {
+contract Comptroller is ComptrollerV6Storage, ComptrollerInterface, ComptrollerErrorReporter, Exponential {
     /// @notice Emitted when an admin supports a market
     event MarketListed(CToken cToken);
 
@@ -625,6 +625,22 @@ contract Comptroller is ComptrollerV5Storage, ComptrollerInterface, ComptrollerE
     }
 
     /**
+     * @notice Checks if the account should be allowed to flashloan tokens in the given market
+     * @param cToken The market to verify the transfer against
+     * @param receiver The account which receives the tokens
+     * @param amount The amount of the tokens
+     * @param params The other parameters
+     */
+    function flashloanAllowed(address cToken, address receiver, uint amount, bytes calldata params) external {
+        require(!flashloanGuardianPaused[cToken], "flashloan is paused");
+
+        // Shh - currently unused
+        receiver;
+        amount;
+        params;
+    }
+
+    /**
      * @notice Check if the account is a credit account
      * @param account The account needs to be checked
      * @param cToken The market
@@ -1107,6 +1123,16 @@ contract Comptroller is ComptrollerV5Storage, ComptrollerInterface, ComptrollerE
 
         borrowGuardianPaused[address(cToken)] = state;
         emit ActionPaused(cToken, "Borrow", state);
+        return state;
+    }
+
+    function _setFlashloanPaused(CToken cToken, bool state) public returns (bool) {
+        require(markets[address(cToken)].isListed, "cannot pause a market that is not listed");
+        require(msg.sender == pauseGuardian || msg.sender == admin, "only pause guardian and admin can pause");
+        require(msg.sender == admin || state == true, "only admin can unpause");
+
+        flashloanGuardianPaused[address(cToken)] = state;
+        emit ActionPaused(cToken, "Flashloan", state);
         return state;
     }
 
