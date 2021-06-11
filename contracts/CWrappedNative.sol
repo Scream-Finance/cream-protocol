@@ -39,7 +39,7 @@ contract CWrappedNative is CToken, CWrappedNativeInterface {
 
         // Set underlying and sanity check it
         underlying = underlying_;
-        EIP20Interface(underlying).totalSupply();
+        BEP20Interface(underlying).totalSupply();
         WrappedNativeInterface(underlying);
     }
 
@@ -302,7 +302,7 @@ contract CWrappedNative is CToken, CWrappedNativeInterface {
             return amount;
         } else {
             EIP20NonStandardInterface token = EIP20NonStandardInterface(underlying);
-            uint balanceBefore = EIP20Interface(underlying).balanceOf(address(this));
+            uint balanceBefore = BEP20Interface(underlying).balanceOf(address(this));
             token.transferFrom(from, address(this), amount);
 
             bool success;
@@ -322,7 +322,7 @@ contract CWrappedNative is CToken, CWrappedNativeInterface {
             require(success, "TOKEN_TRANSFER_IN_FAILED");
 
             // Calculate the amount that was *actually* transferred
-            uint balanceAfter = EIP20Interface(underlying).balanceOf(address(this));
+            uint balanceAfter = BEP20Interface(underlying).balanceOf(address(this));
             uint balanceReceived = sub_(balanceAfter, balanceBefore);
             // Convert received wrapped token to native token
             WrappedNativeInterface(underlying).withdraw(balanceReceived);
