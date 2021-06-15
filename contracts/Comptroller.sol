@@ -1181,6 +1181,11 @@ contract Comptroller is ComptrollerV6Storage, ComptrollerInterface, ComptrollerE
      * @param supplier The address of the supplier to distribute COMP to
      */
     function distributeSupplierComp(address cToken, address supplier) internal {
+        // We won't relaunch LM program on comptroller again. Do nothing if the user's supplierIndex is 0.
+        if (compSupplierIndex[cToken][supplier] == 0) {
+            return;
+        }
+
         CompMarketState storage supplyState = compSupplyState[cToken];
         Double memory supplyIndex = Double({mantissa: supplyState.index});
         Double memory supplierIndex = Double({mantissa: compSupplierIndex[cToken][supplier]});
@@ -1205,6 +1210,11 @@ contract Comptroller is ComptrollerV6Storage, ComptrollerInterface, ComptrollerE
      * @param borrower The address of the borrower to distribute COMP to
      */
     function distributeBorrowerComp(address cToken, address borrower, Exp memory marketBorrowIndex) internal {
+        // We won't relaunch LM program on comptroller again. Do nothing if the user's borrowerIndex is 0.
+        if (compBorrowerIndex[cToken][borrower] == 0) {
+            return;
+        }
+
         CompMarketState storage borrowState = compBorrowState[cToken];
         Double memory borrowIndex = Double({mantissa: borrowState.index});
         Double memory borrowerIndex = Double({mantissa: compBorrowerIndex[cToken][borrower]});
