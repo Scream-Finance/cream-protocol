@@ -1,8 +1,6 @@
 const {
-  address,
   etherMantissa,
-  both,
-  UInt256Max
+  both
 } = require('../Utils/Ethereum');
 
 const {
@@ -93,29 +91,6 @@ describe('Comptroller', () => {
         newPriceOracle: newOracle._address
       });
       expect(await call(comptroller, 'oracle')).toEqual(newOracle._address);
-    });
-  });
-
-  describe('_setLiquidityMining', () => {
-    // We don't test liquidity mining module here.
-    const liquidityMining = address(1);
-    let comptroller;
-    beforeEach(async () => {
-      comptroller = await makeComptroller();
-    });
-
-    it("fails if called by non-admin", async () => {
-      await expect(send(comptroller, '_setLiquidityMining', [liquidityMining], {from: accounts[0]})).rejects.toRevert("revert only admin can set liquidity mining module");
-    });
-
-    it("succeeds and emits a NewLiquidityMining event", async () => {
-      const result = await send(comptroller, '_setLiquidityMining', [liquidityMining]);
-      expect(result).toSucceed();
-      expect(result).toHaveLog('NewLiquidityMining', {
-        oldLiquidityMining: address(0),
-        newLiquidityMining: liquidityMining
-      });
-      expect(await call(comptroller, 'liquidityMining')).toEqual(liquidityMining);
     });
   });
 
