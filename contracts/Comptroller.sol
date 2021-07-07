@@ -65,6 +65,12 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
     /// @notice Emitted when cToken version is changed
     event NewCTokenVersion(CToken cToken, Version oldVersion, Version newVersion);
 
+    /// @notice Emitted when a market's control is changed
+    event MarketControlChanged(address market, bool enabled);
+
+    /// @notice Emitted when the allowlist is updated
+    event AllowlistUpdated(address market, address account, bool allow);
+
     // No collateralFactorMantissa may exceed this value
     uint internal constant collateralFactorMaxMantissa = 0.9e18; // 0.9
 
@@ -228,6 +234,9 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
         // Pausing is a very serious situation - we revert to sound the alarms
         require(!mintGuardianPaused[cToken], "mint is paused");
         require(!isCreditAccount(minter, cToken), "credit account cannot mint");
+        if (marketControlEnabled[cToken]) {
+            require(allowlist[cToken][minter], "account is not allowed to mint a protected asset");
+        }
 
         if (!markets[cToken].isListed) {
             return uint(Error.MARKET_NOT_LISTED);
@@ -585,9 +594,9 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
         // Pausing is a very serious situation - we revert to sound the alarms
         require(!transferGuardianPaused, "transfer is paused");
         require(!isCreditAccount(dst, cToken), "cannot transfer to a credit account");
-
-        // Shh - currently unused
-        dst;
+        if (marketControlEnabled[cToken]) {
+            require(allowlist[cToken][dst], "can only transfer a protected asset to allowlist");
+        }
 
         // Currently the only consideration is whether or not
         //  the src is allowed to redeem this many tokens
@@ -1161,6 +1170,33 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
 
         creditLimits[protocol][market] = creditLimit;
         emit CreditLimitChanged(protocol, market, creditLimit);
+    }
+
+    /**
+      * @notice Sets the market control
+      * @param cToken The market
+      * @param enable Apply control or not
+      */
+    function _setMarketControl(address cToken, bool enable) public {
+        require(msg.sender == admin, "only admin can set market control");
+
+        marketControlEnabled[cToken] = enable;
+        emit MarketControlChanged(cToken, enable);
+    }
+
+    /**
+      * @notice Updates the allowlist
+      * @param cToken The market
+      * @param accounts The accounts
+      * @param allow Allow or not
+      */
+    function _updateAllowlist(address cToken, address[] memory accounts, bool allow) public {
+        require(msg.sender == admin || msg.sender == pauseGuardian, "only admin or guardian can update the allowlist");
+
+        for (uint i = 0; i < accounts.length; i++) {
+            allowlist[cToken][accounts[i]] = allow;
+            emit AllowlistUpdated(cToken, accounts[i], allow);
+        }
     }
 
     /**
