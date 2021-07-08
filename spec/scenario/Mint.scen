@@ -113,3 +113,22 @@ Test "Mint reverts if it's a credit account"
     Mint Geoff 50e18 cZRX
     Assert Revert "revert credit account cannot mint"
     Assert Equal (Erc20 cZRX TokenBalance Geoff) (Exactly 0e9)
+
+Test "Mint succeeds for allowlist"
+    NewComptroller
+    ListedCToken ZRX cZRX initialExchangeRate:1e9
+    Prep Geoff Some ZRX cZRX
+    Comptroller SetMarketControl cZRX True
+    Comptroller UpdateAllowlist cZRX (Geoff) True
+    Mint Geoff 50e18 cZRX
+    Assert Equal (Erc20 cZRX TokenBalance Geoff) (Exactly 50e9)
+
+Test "Mint reverts if it's protected and the minter is not in allowlist"
+    NewComptroller
+    ListedCToken ZRX cZRX initialExchangeRate:1e9
+    Prep Geoff Some ZRX cZRX
+    Comptroller SetMarketControl cZRX True
+    AllowFailures
+    Mint Geoff 50e18 cZRX
+    Assert Revert "revert account is not allowed to mint a protected asset"
+    Assert Equal (Erc20 cZRX TokenBalance Geoff) (Exactly 0e9)

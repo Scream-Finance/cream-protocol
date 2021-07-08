@@ -360,8 +360,6 @@ async function setBlockNumber(world: World, from: string, comptroller: Comptroll
     `Set Governor blockNumber to ${blockNumber.show()}`,
     invokation
   );
-
-  return world;
 }
 
 async function setCreditLimit(world: World, from: string, comptroller: Comptroller, protocol: string, market: string, creditLimit: NumberV): Promise<World> {
@@ -370,6 +368,26 @@ async function setCreditLimit(world: World, from: string, comptroller: Comptroll
   return addAction(
     world,
     `Set ${market} credit limit of ${protocol} to ${creditLimit.show()}`,
+    invokation
+  );
+}
+
+async function setMarketControl(world: World, from: string, comptroller: Comptroller, market: string, enable: boolean): Promise<World> {
+  let invokation = await invoke(world, comptroller.methods._setMarketControl(market, enable), from, ComptrollerErrorReporter);
+
+  return addAction(
+    world,
+    `Change ${market} market control to ${enable}`,
+    invokation
+  );
+}
+
+async function updateAllowlist(world: World, from: string, comptroller: Comptroller, market: string, accounts: string[], allow: boolean): Promise<World> {
+  let invokation = await invoke(world, comptroller.methods._updateAllowlist(market, accounts, allow), from, ComptrollerErrorReporter);
+
+  return addAction(
+    world,
+    `Update accounts ${accounts} in ${market} allowlist to ${allow}`,
     invokation
   );
 }
@@ -721,6 +739,33 @@ export function comptrollerCommands() {
         new Arg('creditLimit', getNumberV)
       ],
       (world, from, {comptroller, protocol, market, creditLimit}) => setCreditLimit(world, from, comptroller, protocol.val, market.val, creditLimit)
+    ),
+    new Command<{comptroller: Comptroller, market: AddressV, enable: BoolV}>(`
+        #### SetMarketControl
+        * "Comptroller SetMarketControl <Market> <Enable>" - Change a market control
+        * E.g. "Comptroller SetMarketControl cZRX True"
+      `,
+      'SetMarketControl',
+      [
+        new Arg('comptroller', getComptroller, {implicit: true}),
+        new Arg('market', getAddressV),
+        new Arg('enable', getBoolV)
+      ],
+      (world, from, {comptroller, market, enable}) => setMarketControl(world, from, comptroller, market.val, enable.val)
+    ),
+    new Command<{comptroller: Comptroller, market: AddressV, accounts: AddressV[], allow: BoolV}>(`
+        #### UpdateAllowlist
+        * "Comptroller UpdateAllowlist <Market> (<Account> ...) <Enable>" - Update a market's allowlist
+        * E.g. "Comptroller UpdateAllowlist cZRX (Geoff) True"
+      `,
+      'UpdateAllowlist',
+      [
+        new Arg('comptroller', getComptroller, {implicit: true}),
+        new Arg('market', getAddressV),
+        new Arg('accounts', getAddressV, {mapped: true}),
+        new Arg('allow', getBoolV)
+      ],
+      (world, from, {comptroller, market, accounts, allow}) => updateAllowlist(world, from, comptroller, market.val, accounts.map((a) => a.val), allow.val)
     ),
   ];
 }

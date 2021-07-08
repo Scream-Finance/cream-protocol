@@ -55,6 +55,8 @@ interface ComptrollerMethods {
   borrowCapGuardian(): Callable<string>
   borrowCaps(string): Callable<string>
   _setCreditLimit(protocol: string, market: string, creditLimit: encodedNumber): Sendable<void>
+  _setMarketControl(market: string, enable: boolean): Sendable<void>
+  _updateAllowlist(market: string, accounts: string[], allow: boolean): Sendable<void>
 }
 
 export interface Comptroller extends Contract {

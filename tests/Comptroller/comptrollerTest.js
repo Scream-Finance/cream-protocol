@@ -206,6 +206,40 @@ describe('Comptroller', () => {
     });
   });
 
+  describe('_setMarketControl', () => {
+    it("fails if not called by admin", async () => {
+      const cToken = await makeCToken({supportMarket: true});
+      await expect(send(cToken.comptroller, '_setMarketControl', [cToken._address, true], {from: accounts[0]})).rejects.toRevert("revert only admin can set market control");
+    });
+
+    it("succeeds and sets market control", async () => {
+      const cToken = await makeCToken({supportMarket: true});
+      const result = await send(cToken.comptroller, '_setMarketControl', [cToken._address, true]);
+      expect(result).toHaveLog('MarketControlChanged', {market: cToken._address, enabled: true});
+
+      const enabled = await call(cToken.comptroller, 'marketControlEnabled', [cToken._address]);
+      expect(enabled).toEqual(true);
+    });
+  });
+
+  describe('_updateAllowlist', () => {
+    it("fails if not called by admin or guardian", async () => {
+      const cToken = await makeCToken({supportMarket: true});
+      const guardian = accounts[0];
+      await send(cToken.comptroller, '_setPauseGuardian', [guardian]);
+      await expect(send(cToken.comptroller, '_updateAllowlist', [cToken._address, [accounts[1]], true], {from: accounts[1]})).rejects.toRevert("revert only admin or guardian can update the allowlist");
+    });
+
+    it("succeeds and sets allowlist", async () => {
+      const cToken = await makeCToken({supportMarket: true});
+      const result = await send(cToken.comptroller, '_updateAllowlist', [cToken._address, [accounts[1]], true]);
+      expect(result).toHaveLog('AllowlistUpdated', {market: cToken._address, account: accounts[1], allow: true});
+
+      const allowed = await call(cToken.comptroller, 'allowlist', [cToken._address, accounts[1]]);
+      expect(allowed).toEqual(true);
+    });
+  });
+
   describe('_delistMarket', () => {
     const version = 0;
 
