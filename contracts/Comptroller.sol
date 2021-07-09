@@ -6,7 +6,6 @@ import "./Exponential.sol";
 import "./PriceOracle.sol";
 import "./ComptrollerInterface.sol";
 import "./ComptrollerStorage.sol";
-import "./LiquidityMiningInterface.sol";
 import "./Unitroller.sol";
 import "./Governance/Comp.sol";
 
@@ -42,9 +41,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
     /// @notice Emitted when pause guardian is changed
     event NewPauseGuardian(address oldPauseGuardian, address newPauseGuardian);
 
-    /// @notice Emitted when liquidity mining module is changed
-    event NewLiquidityMining(address oldLiquidityMining, address newLiquidityMining);
-
     /// @notice Emitted when an action is paused globally
     event ActionPaused(string action, bool pauseState);
 
@@ -68,6 +64,12 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
 
     /// @notice Emitted when cToken version is changed
     event NewCTokenVersion(CToken cToken, Version oldVersion, Version newVersion);
+
+    /// @notice Emitted when a market's control is changed
+    event MarketControlChanged(address market, bool enabled);
+
+    /// @notice Emitted when the allowlist is updated
+    event AllowlistUpdated(address market, address account, bool allow);
 
     // No collateralFactorMantissa may exceed this value
     uint internal constant collateralFactorMaxMantissa = 0.9e18; // 0.9
@@ -232,6 +234,9 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
         // Pausing is a very serious situation - we revert to sound the alarms
         require(!mintGuardianPaused[cToken], "mint is paused");
         require(!isCreditAccount(minter, cToken), "credit account cannot mint");
+        if (marketControlEnabled[cToken]) {
+            require(allowlist[cToken][minter], "account is not allowed to mint a protected asset");
+        }
 
         if (!markets[cToken].isListed) {
             return uint(Error.MARKET_NOT_LISTED);
@@ -249,12 +254,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
 
             uint nextTotalSupplies = add_(totalSupplies, mintAmount);
             require(nextTotalSupplies < supplyCap, "market supply cap reached");
-        }
-
-        if (liquidityMining != address(0)) {
-            address[] memory accounts = new address[](1);
-            accounts[0] = minter;
-            LiquidityMiningInterface(liquidityMining).updateSupplyIndex(cToken, accounts);
         }
 
         return uint(Error.NO_ERROR);
@@ -288,18 +287,7 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
      * @return 0 if the redeem is allowed, otherwise a semi-opaque error code (See ErrorReporter.sol)
      */
     function redeemAllowed(address cToken, address redeemer, uint redeemTokens) external returns (uint) {
-        uint allowed = redeemAllowedInternal(cToken, redeemer, redeemTokens);
-        if (allowed != uint(Error.NO_ERROR)) {
-            return allowed;
-        }
-
-        if (liquidityMining != address(0)) {
-            address[] memory accounts = new address[](1);
-            accounts[0] = redeemer;
-            LiquidityMiningInterface(liquidityMining).updateSupplyIndex(cToken, accounts);
-        }
-
-        return uint(Error.NO_ERROR);
+        return redeemAllowedInternal(cToken, redeemer, redeemTokens);
     }
 
     function redeemAllowedInternal(address cToken, address redeemer, uint redeemTokens) internal view returns (uint) {
@@ -391,12 +379,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
             return uint(Error.INSUFFICIENT_LIQUIDITY);
         }
 
-        if (liquidityMining != address(0)) {
-            address[] memory accounts = new address[](1);
-            accounts[0] = borrower;
-            LiquidityMiningInterface(liquidityMining).updateBorrowIndex(cToken, accounts);
-        }
-
         return uint(Error.NO_ERROR);
     }
 
@@ -433,16 +415,11 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
         uint repayAmount) external returns (uint) {
         // Shh - currently unused
         payer;
+        borrower;
         repayAmount;
 
         if (!markets[cToken].isListed) {
             return uint(Error.MARKET_NOT_LISTED);
-        }
-
-        if (liquidityMining != address(0)) {
-            address[] memory accounts = new address[](1);
-            accounts[0] = borrower;
-            LiquidityMiningInterface(liquidityMining).updateBorrowIndex(cToken, accounts);
         }
 
         return uint(Error.NO_ERROR);
@@ -575,13 +552,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
             return uint(Error.COMPTROLLER_MISMATCH);
         }
 
-        if (liquidityMining != address(0)) {
-            address[] memory accounts = new address[](2);
-            accounts[0] = borrower;
-            accounts[1] = liquidator;
-            LiquidityMiningInterface(liquidityMining).updateSupplyIndex(cTokenCollateral, accounts);
-        }
-
         return uint(Error.NO_ERROR);
     }
 
@@ -624,22 +594,13 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
         // Pausing is a very serious situation - we revert to sound the alarms
         require(!transferGuardianPaused, "transfer is paused");
         require(!isCreditAccount(dst, cToken), "cannot transfer to a credit account");
+        if (marketControlEnabled[cToken]) {
+            require(allowlist[cToken][dst], "can only transfer a protected asset to allowlist");
+        }
 
         // Currently the only consideration is whether or not
         //  the src is allowed to redeem this many tokens
-        uint allowed = redeemAllowedInternal(cToken, src, transferTokens);
-        if (allowed != uint(Error.NO_ERROR)) {
-            return allowed;
-        }
-
-        if (liquidityMining != address(0)) {
-            address[] memory accounts = new address[](2);
-            accounts[0] = src;
-            accounts[1] = dst;
-            LiquidityMiningInterface(liquidityMining).updateSupplyIndex(cToken, accounts);
-        }
-
-        return uint(Error.NO_ERROR);
+        return redeemAllowedInternal(cToken, src, transferTokens);
     }
 
     /**
@@ -1144,24 +1105,6 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
         return uint(Error.NO_ERROR);
     }
 
-    /**
-     * @notice Admin function to set the liquidity mining module address
-     * @dev Removing the liquidity mining module address could cause the inconsistency in the LM module.
-     * @param newLiquidityMining The address of the new liquidity mining module
-     */
-    function _setLiquidityMining(address newLiquidityMining) external {
-        require(msg.sender == admin, "only admin can set liquidity mining module");
-
-        // Save current value for inclusion in log
-        address oldLiquidityMining = liquidityMining;
-
-        // Store pauseGuardian with value newLiquidityMining
-        liquidityMining = newLiquidityMining;
-
-        // Emit NewLiquidityMining(OldLiquidityMining, NewLiquidityMining)
-        emit NewLiquidityMining(oldLiquidityMining, liquidityMining);
-    }
-
     function _setMintPaused(CToken cToken, bool state) public returns (bool) {
         require(markets[address(cToken)].isListed, "cannot pause a market that is not listed");
         require(msg.sender == pauseGuardian || msg.sender == admin, "only pause guardian and admin can pause");
@@ -1227,6 +1170,33 @@ contract Comptroller is ComptrollerV1Storage, ComptrollerInterface, ComptrollerE
 
         creditLimits[protocol][market] = creditLimit;
         emit CreditLimitChanged(protocol, market, creditLimit);
+    }
+
+    /**
+      * @notice Sets the market control
+      * @param cToken The market
+      * @param enable Apply control or not
+      */
+    function _setMarketControl(address cToken, bool enable) public {
+        require(msg.sender == admin, "only admin can set market control");
+
+        marketControlEnabled[cToken] = enable;
+        emit MarketControlChanged(cToken, enable);
+    }
+
+    /**
+      * @notice Updates the allowlist
+      * @param cToken The market
+      * @param accounts The accounts
+      * @param allow Allow or not
+      */
+    function _updateAllowlist(address cToken, address[] memory accounts, bool allow) public {
+        require(msg.sender == admin || msg.sender == pauseGuardian, "only admin or guardian can update the allowlist");
+
+        for (uint i = 0; i < accounts.length; i++) {
+            allowlist[cToken][accounts[i]] = allow;
+            emit AllowlistUpdated(cToken, accounts[i], allow);
+        }
     }
 
     /**

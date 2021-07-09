@@ -109,6 +109,9 @@ contract ComptrollerV1Storage is UnitrollerAdminStorage {
     // @notice creditLimits allowed specific protocols to borrow and repay specific markets without collateral.
     mapping(address => mapping(address => uint)) public creditLimits;
 
-    /// @notice liquidityMining the liquidity mining module that handles the LM rewards distribution.
-    address public liquidityMining;
+    /// @notice The marketControlEnabled indicates the market is in the control or not.
+    mapping(address => bool) public marketControlEnabled;
+
+    /// @notice allowlist shows the specific address is allowed to supply or transfer in a specific market.
+    mapping(address => mapping(address => bool)) public allowlist;
 }

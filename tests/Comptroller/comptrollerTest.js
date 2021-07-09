@@ -1,8 +1,6 @@
 const {
-  address,
   etherMantissa,
-  both,
-  UInt256Max
+  both
 } = require('../Utils/Ethereum');
 
 const {
@@ -93,29 +91,6 @@ describe('Comptroller', () => {
         newPriceOracle: newOracle._address
       });
       expect(await call(comptroller, 'oracle')).toEqual(newOracle._address);
-    });
-  });
-
-  describe('_setLiquidityMining', () => {
-    // We don't test liquidity mining module here.
-    const liquidityMining = address(1);
-    let comptroller;
-    beforeEach(async () => {
-      comptroller = await makeComptroller();
-    });
-
-    it("fails if called by non-admin", async () => {
-      await expect(send(comptroller, '_setLiquidityMining', [liquidityMining], {from: accounts[0]})).rejects.toRevert("revert only admin can set liquidity mining module");
-    });
-
-    it("succeeds and emits a NewLiquidityMining event", async () => {
-      const result = await send(comptroller, '_setLiquidityMining', [liquidityMining]);
-      expect(result).toSucceed();
-      expect(result).toHaveLog('NewLiquidityMining', {
-        oldLiquidityMining: address(0),
-        newLiquidityMining: liquidityMining
-      });
-      expect(await call(comptroller, 'liquidityMining')).toEqual(liquidityMining);
     });
   });
 
@@ -228,6 +203,40 @@ describe('Comptroller', () => {
 
       const assetsIn = await call(cToken.comptroller, 'getAssetsIn', [accounts[0]]);
       expect(assetsIn).toEqual([cToken._address]);
+    });
+  });
+
+  describe('_setMarketControl', () => {
+    it("fails if not called by admin", async () => {
+      const cToken = await makeCToken({supportMarket: true});
+      await expect(send(cToken.comptroller, '_setMarketControl', [cToken._address, true], {from: accounts[0]})).rejects.toRevert("revert only admin can set market control");
+    });
+
+    it("succeeds and sets market control", async () => {
+      const cToken = await makeCToken({supportMarket: true});
+      const result = await send(cToken.comptroller, '_setMarketControl', [cToken._address, true]);
+      expect(result).toHaveLog('MarketControlChanged', {market: cToken._address, enabled: true});
+
+      const enabled = await call(cToken.comptroller, 'marketControlEnabled', [cToken._address]);
+      expect(enabled).toEqual(true);
+    });
+  });
+
+  describe('_updateAllowlist', () => {
+    it("fails if not called by admin or guardian", async () => {
+      const cToken = await makeCToken({supportMarket: true});
+      const guardian = accounts[0];
+      await send(cToken.comptroller, '_setPauseGuardian', [guardian]);
+      await expect(send(cToken.comptroller, '_updateAllowlist', [cToken._address, [accounts[1]], true], {from: accounts[1]})).rejects.toRevert("revert only admin or guardian can update the allowlist");
+    });
+
+    it("succeeds and sets allowlist", async () => {
+      const cToken = await makeCToken({supportMarket: true});
+      const result = await send(cToken.comptroller, '_updateAllowlist', [cToken._address, [accounts[1]], true]);
+      expect(result).toHaveLog('AllowlistUpdated', {market: cToken._address, account: accounts[1], allow: true});
+
+      const allowed = await call(cToken.comptroller, 'allowlist', [cToken._address, accounts[1]]);
+      expect(allowed).toEqual(true);
     });
   });
 
