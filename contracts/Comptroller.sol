@@ -582,8 +582,6 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
         require(!isCreditAccount(borrower, cTokenBorrowed), "cannot sieze from credit account");
 
         // Shh - currently unused
-        liquidator;
-        borrower;
         seizeTokens;
 
         if (!isMarketListed(cTokenCollateral) || !isMarketListed(cTokenBorrowed)) {
