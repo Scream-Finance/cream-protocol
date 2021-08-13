@@ -170,6 +170,7 @@ jobs:
       - attach_workspace:
           at: ~/repo
       - run: yarn run prettier '**/**/*.sol' -c
+      - run: yarn run prettier '**/**/*.js' -c
   docker:
     docker:
       - image: cimg/go:1.13

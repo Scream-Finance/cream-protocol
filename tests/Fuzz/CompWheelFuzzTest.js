@@ -1,7 +1,7 @@
-let rand = x => new bn(Math.floor(Math.random() * x));
-let range = count => [...Array(count).keys()];
+let rand = (x) => new bn(Math.floor(Math.random() * x));
+let range = (count) => [...Array(count).keys()];
 
-const bn = require('bignumber.js');
+const bn = require("bignumber.js");
 bn.config({ ROUNDING_MODE: bn.ROUND_HALF_DOWN });
 
 const RUN_COUNT = 20;
@@ -24,8 +24,8 @@ expect.extend({
   toFuzzPass(assertion, expected, actual, reason, state, events) {
     let eventStr = events
       .filter(({ action, failed }) => !failed)
-      .map(event => `${JSON.stringify(event)},`)
-      .join('\n');
+      .map((event) => `${JSON.stringify(event)},`)
+      .join("\n");
 
     return {
       pass: !!assertion(expected, actual),
@@ -33,52 +33,57 @@ expect.extend({
         Expected: ${JSON.stringify(expected)},
         Actual: ${JSON.stringify(actual)},
         Reason: ${reason}
-        State: \n${JSON.stringify(state, null, '\t')}
+        State: \n${JSON.stringify(state, null, "\t")}
         Events:\n${eventStr}
-      `
+      `,
     };
-  }
+  },
 });
 
-describe.skip('CompWheelFuzzTest', () => {
+describe.skip("CompWheelFuzzTest", () => {
   // This whole test is fake, but we're testing to see if our equations match reality.
 
   // First, we're going to build a simple simulator of the Compound protocol
 
-  let randAccount = globals => {
+  let randAccount = (globals) => {
     return globals.accounts[rand(globals.accounts.length)];
   };
 
-  let get = src => {
+  let get = (src) => {
     return src || new bn(0);
   };
 
   let isPositive = (src) => {
-    assert(bn.isBigNumber(src), "isPositive got wrong type: expected bigNumber");
+    assert(
+      bn.isBigNumber(src),
+      "isPositive got wrong type: expected bigNumber"
+    );
     return src.decimalPlaces(PRECISION_DECIMALS).isGreaterThan(0);
-  }
-
-  let almostEqual = (expected, actual) => {
-    return expected.decimalPlaces(PRECISION_DECIMALS).eq(actual.decimalPlaces(PRECISION_DECIMALS));
   };
 
-  let deepCopy = src => {
+  let almostEqual = (expected, actual) => {
+    return expected
+      .decimalPlaces(PRECISION_DECIMALS)
+      .eq(actual.decimalPlaces(PRECISION_DECIMALS));
+  };
+
+  let deepCopy = (src) => {
     return Object.entries(src).reduce((acc, [key, val]) => {
       if (bn.isBigNumber(val)) {
         return {
           ...acc,
-          [key]: new bn(val)
+          [key]: new bn(val),
         };
       } else {
         return {
           ...acc,
-          [key]: deepCopy(val)
+          [key]: deepCopy(val),
         };
       }
     }, {});
   };
 
-  let initialState = globals => {
+  let initialState = (globals) => {
     return {
       // ctoken
       accrualBlockNumber: globals.blockNumber,
@@ -108,7 +113,7 @@ describe.skip('CompWheelFuzzTest', () => {
       compAccruedWithIndex: {}, // with indices
 
       activeBorrowBlocks: new bn(0), // # blocks with an active borrow, for which we expect to see comp distributed. just for fuzz testing.
-      activeSupplyBlocks: new bn(0)
+      activeSupplyBlocks: new bn(0),
     };
   };
 
@@ -116,13 +121,10 @@ describe.skip('CompWheelFuzzTest', () => {
     totalCash,
     totalSupply,
     totalBorrows,
-    totalReserves
+    totalReserves,
   }) => {
     if (isPositive(totalSupply)) {
-      return totalCash
-        .plus(totalBorrows)
-        .minus(totalReserves)
-        .div(totalSupply);
+      return totalCash.plus(totalBorrows).minus(totalReserves).div(totalSupply);
     } else {
       return new bn(1);
     }
@@ -174,7 +176,7 @@ describe.skip('CompWheelFuzzTest', () => {
       totalSupply,
       totalBorrows,
       compAccruedWithCrank,
-      borrowBalances
+      borrowBalances,
     } = state;
 
     // suppliers
@@ -183,10 +185,7 @@ describe.skip('CompWheelFuzzTest', () => {
         compAccruedWithCrank[account] = get(
           state.compAccruedWithCrank[account]
         ).plus(
-          deltaBlocks
-            .times(compSupplySpeed)
-            .times(balance)
-            .div(totalSupply)
+          deltaBlocks.times(compSupplySpeed).times(balance).div(totalSupply)
         );
       }
     }
@@ -224,7 +223,7 @@ describe.skip('CompWheelFuzzTest', () => {
       borrowBalances,
       compBorrowIndexUpdatedBlock,
       borrowIndex,
-      borrowIndexSnapshots
+      borrowIndexSnapshots,
     } = state;
 
     let deltaBlocks = globals.blockNumber.minus(compBorrowIndexUpdatedBlock);
@@ -259,8 +258,8 @@ describe.skip('CompWheelFuzzTest', () => {
       compBorrowIndex: compBorrowIndex,
       compBorrowIndexSnapshots: {
         ...state.compBorrowIndexSnapshots,
-        [account]: compBorrowIndex
-      }
+        [account]: compBorrowIndex,
+      },
     };
   };
 
@@ -273,7 +272,7 @@ describe.skip('CompWheelFuzzTest', () => {
       compSupplyIndexSnapshots,
       compAccruedWithIndex,
       totalSupply,
-      compSupplyIndexUpdatedBlock
+      compSupplyIndexUpdatedBlock,
     } = state;
 
     let deltaBlocks = globals.blockNumber.minus(compSupplyIndexUpdatedBlock);
@@ -298,19 +297,15 @@ describe.skip('CompWheelFuzzTest', () => {
       compSupplyIndex: compSupplyIndex,
       compSupplyIndexSnapshots: {
         ...state.compSupplyIndexSnapshots,
-        [account]: compSupplyIndex
+        [account]: compSupplyIndex,
       },
-      compAccruedWithIndex: compAccruedWithIndex
+      compAccruedWithIndex: compAccruedWithIndex,
     };
   };
 
   let accrueActiveBlocks = (state, deltaBlocks) => {
-    let {
-      activeBorrowBlocks,
-      activeSupplyBlocks,
-      totalBorrows,
-      totalSupply
-    } = state;
+    let { activeBorrowBlocks, activeSupplyBlocks, totalBorrows, totalSupply } =
+      state;
     if (isPositive(totalSupply)) {
       activeSupplyBlocks = activeSupplyBlocks.plus(deltaBlocks);
     }
@@ -322,7 +317,7 @@ describe.skip('CompWheelFuzzTest', () => {
     return {
       ...state,
       activeSupplyBlocks: activeSupplyBlocks,
-      activeBorrowBlocks: activeBorrowBlocks
+      activeBorrowBlocks: activeBorrowBlocks,
     };
   };
 
@@ -350,7 +345,7 @@ describe.skip('CompWheelFuzzTest', () => {
       totalReserves,
       accrualBlockNumber,
       borrowIndex,
-      reserveFactor
+      reserveFactor,
     } = state;
 
     let deltaBlocks = globals.blockNumber.minus(accrualBlockNumber);
@@ -377,50 +372,50 @@ describe.skip('CompWheelFuzzTest', () => {
       accrualBlockNumber: globals.blockNumber,
       borrowIndex: borrowIndexNew,
       totalBorrows: totalBorrowsNew,
-      totalReserves: totalReservesNew
+      totalReserves: totalReservesNew,
     };
   };
 
   let mine = {
-    action: 'mine',
+    action: "mine",
     rate: 10,
     run: (globals, state, {}, { assert }) => {
       return state;
     },
-    gen: globals => {
+    gen: (globals) => {
       return {
-        mine: rand(100).plus(1)
+        mine: rand(100).plus(1),
       };
-    }
+    },
   };
 
   let gift = {
-    action: 'gift',
+    action: "gift",
     rate: 3,
     run: (globals, state, { amount }, { assert }) => {
       amount = new bn(amount);
       return {
         ...state,
-        totalCash: state.totalCash.plus(amount)
+        totalCash: state.totalCash.plus(amount),
       };
     },
-    gen: globals => {
+    gen: (globals) => {
       return {
-        amount: rand(1000)
+        amount: rand(1000),
       };
-    }
+    },
   };
 
   let test = {
-    action: 'test',
+    action: "test",
     run: (globals, state, { amount }, { assert }) => {
       console.log(state);
       return state;
-    }
+    },
   };
 
   let borrow = {
-    action: 'borrow',
+    action: "borrow",
     rate: 10,
     run: (globals, state, { account, amount }, { assert }) => {
       amount = new bn(amount);
@@ -430,7 +425,7 @@ describe.skip('CompWheelFuzzTest', () => {
       let newTotalCash = state.totalCash.minus(amount);
       assert(
         isPositive(newTotalCash.plus(state.totalReserves)),
-        'Attempted to borrow more than total cash'
+        "Attempted to borrow more than total cash"
       );
 
       let newBorrowBalance = getAccruedBorrowBalance(state, account).plus(
@@ -440,7 +435,7 @@ describe.skip('CompWheelFuzzTest', () => {
         get(state.balances[account])
           .times(getExchangeRate(state))
           .isGreaterThan(newBorrowBalance),
-        'Borrower undercollateralized'
+        "Borrower undercollateralized"
       );
 
       return {
@@ -449,24 +444,24 @@ describe.skip('CompWheelFuzzTest', () => {
         totalCash: newTotalCash,
         borrowBalances: {
           ...state.borrowBalances,
-          [account]: newBorrowBalance
+          [account]: newBorrowBalance,
         },
         borrowIndexSnapshots: {
           ...state.borrowIndexSnapshots,
-          [account]: state.borrowIndex
-        }
+          [account]: state.borrowIndex,
+        },
       };
     },
-    gen: globals => {
+    gen: (globals) => {
       return {
         account: randAccount(globals),
-        amount: rand(1000)
+        amount: rand(1000),
       };
-    }
+    },
   };
 
   let repayBorrow = {
-    action: 'repayBorrow',
+    action: "repayBorrow",
     rate: 10,
     run: (globals, state, { account, amount }, { assert }) => {
       amount = new bn(amount);
@@ -474,7 +469,7 @@ describe.skip('CompWheelFuzzTest', () => {
       state = borrowerFlywheelByIndex(globals, state, account);
 
       let accruedBorrowBalance = getAccruedBorrowBalance(state, account);
-      assert(isPositive(accruedBorrowBalance), 'No active borrow');
+      assert(isPositive(accruedBorrowBalance), "No active borrow");
 
       let newTotalBorrows;
 
@@ -491,19 +486,19 @@ describe.skip('CompWheelFuzzTest', () => {
 
       return {
         ...state,
-        totalCash: state.totalCash.plus(bn.min(amount, accruedBorrowBalance))
+        totalCash: state.totalCash.plus(bn.min(amount, accruedBorrowBalance)),
       };
     },
-    gen: globals => {
+    gen: (globals) => {
       return {
         account: randAccount(globals),
-        amount: rand(1000)
+        amount: rand(1000),
       };
-    }
+    },
   };
 
   let mint = {
-    action: 'mint',
+    action: "mint",
     rate: 10,
     run: (globals, state, { account, amount }, { assert }) => {
       amount = new bn(amount);
@@ -519,20 +514,20 @@ describe.skip('CompWheelFuzzTest', () => {
         totalSupply: state.totalSupply.plus(tokens),
         balances: {
           ...state.balances,
-          [account]: balance.plus(tokens)
-        }
+          [account]: balance.plus(tokens),
+        },
       };
     },
-    gen: globals => {
+    gen: (globals) => {
       return {
         account: randAccount(globals),
-        amount: rand(1000)
+        amount: rand(1000),
       };
-    }
+    },
   };
 
   let redeem = {
-    action: 'redeem',
+    action: "redeem",
     rate: 10,
     run: (globals, state, { account, tokens }, { assert }) => {
       tokens = new bn(tokens);
@@ -540,7 +535,10 @@ describe.skip('CompWheelFuzzTest', () => {
       state = supplierFlywheelByIndex(globals, state, account);
 
       let balance = get(state.balances[account]);
-      assert(balance.isGreaterThan(tokens), 'Redeem fails for insufficient balance');
+      assert(
+        balance.isGreaterThan(tokens),
+        "Redeem fails for insufficient balance"
+      );
       let exchangeRate = getExchangeRate(state);
       let amount = tokens.times(exchangeRate);
 
@@ -550,16 +548,16 @@ describe.skip('CompWheelFuzzTest', () => {
         totalSupply: state.totalSupply.minus(tokens),
         balances: {
           ...state.balances,
-          [account]: balance.minus(tokens)
-        }
+          [account]: balance.minus(tokens),
+        },
       };
     },
-    gen: globals => {
+    gen: (globals) => {
       return {
         account: randAccount(globals),
-        tokens: rand(1000)
+        tokens: rand(1000),
       };
-    }
+    },
   };
 
   let actors = {
@@ -568,14 +566,14 @@ describe.skip('CompWheelFuzzTest', () => {
     redeem,
     gift,
     borrow,
-    repayBorrow
+    repayBorrow,
     // test
   };
 
   let generateGlobals = () => {
     return {
       blockNumber: new bn(1000),
-      accounts: ['Adam Savage', 'Ben Solo', 'Jeffrey Lebowski']
+      accounts: ["Adam Savage", "Ben Solo", "Jeffrey Lebowski"],
     };
   };
 
@@ -659,12 +657,12 @@ describe.skip('CompWheelFuzzTest', () => {
     return trueUpComp(globals, state);
   };
 
-  let generateEvent = globals => {
+  let generateEvent = (globals) => {
     let actor = randActor();
 
     return {
       ...actor.gen(globals),
-      action: actor.action
+      action: actor.action,
     };
   };
 
@@ -687,7 +685,7 @@ describe.skip('CompWheelFuzzTest', () => {
     testInvariants(globals, state, events, invariantFnBound);
   }
 
-  range(RUN_COUNT).forEach(count => {
+  range(RUN_COUNT).forEach((count) => {
     it(`runs: ${count}`, () => {
       let invariant = (assertion, expected, actual, reason, state, events) => {
         expect(assertion).toFuzzPass(expected, actual, reason, state, events);

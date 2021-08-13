@@ -125,7 +125,7 @@ module.exports = {
   // A list of paths to modules that run some code to configure or set up the testing framework before each test
   setupFilesAfterEnv: [
     "<rootDir>/tests/Matchers.js",
-    "<rootDir>/tests/Jest.js"
+    "<rootDir>/tests/Jest.js",
   ],
 
   // A list of paths to snapshot serializer modules Jest should use for snapshot testing
