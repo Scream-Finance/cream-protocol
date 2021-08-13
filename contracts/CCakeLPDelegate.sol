@@ -15,10 +15,15 @@ interface IMasterChef {
     }
 
     function deposit(uint256, uint256) external;
+
     function withdraw(uint256, uint256) external;
-    function cake() view external returns (address);
-    function poolInfo(uint256) view external returns (PoolInfo memory);
-    function userInfo(uint256, address) view external returns (UserInfo memory);
+
+    function cake() external view returns (address);
+
+    function poolInfo(uint256) external view returns (PoolInfo memory);
+
+    function userInfo(uint256, address) external view returns (UserInfo memory);
+
     function pendingCake(uint256, address) external view returns (uint256);
 }
 
@@ -41,7 +46,7 @@ contract CCakeLPDelegate is CCapableErc20Delegate {
     /**
      * @notice Pool ID of this LP in MasterChef
      */
-    uint public pid;
+    uint256 public pid;
 
     /**
      * @notice Container for cake rewards state
@@ -49,8 +54,8 @@ contract CCakeLPDelegate is CCapableErc20Delegate {
      * @member index The last updated index
      */
     struct CakeRewardState {
-        uint balance;
-        uint index;
+        uint256 balance;
+        uint256 index;
     }
 
     /**
@@ -61,12 +66,12 @@ contract CCakeLPDelegate is CCapableErc20Delegate {
     /**
      * @notice The index of every CakeLP supplier
      */
-    mapping(address => uint) public clpSupplierIndex;
+    mapping(address => uint256) public clpSupplierIndex;
 
     /**
      * @notice The CAKE amount of every user
      */
-    mapping(address => uint) public cakeUserAccrued;
+    mapping(address => uint256) public cakeUserAccrued;
 
     /**
      * @notice Delegate interface to become the implementation
@@ -75,7 +80,7 @@ contract CCakeLPDelegate is CCapableErc20Delegate {
     function _becomeImplementation(bytes memory data) public {
         super._becomeImplementation(data);
 
-        (address masterChefAddress_, uint pid_) = abi.decode(data, (address, uint));
+        (address masterChefAddress_, uint256 pid_) = abi.decode(data, (address, uint256));
         masterChef = masterChefAddress_;
         cake = IMasterChef(masterChef).cake();
 
@@ -84,21 +89,21 @@ contract CCakeLPDelegate is CCapableErc20Delegate {
         pid = pid_;
 
         // Approve moving our CakeLP into the master chef contract.
-        BEP20Interface(underlying).approve(masterChefAddress_, uint(-1));
+        BEP20Interface(underlying).approve(masterChefAddress_, uint256(-1));
     }
 
     /**
      * @notice Manually claim cake rewards by user
      * @return The amount of cake rewards user claims
      */
-    function claimCake(address account) public returns (uint) {
+    function claimCake(address account) public returns (uint256) {
         harvestCake();
 
         updateCakeLPSupplyIndex();
         updateSupplierIndex(account);
 
         // Get user's cake accrued.
-        uint cakeBalance = cakeUserAccrued[account];
+        uint256 cakeBalance = cakeUserAccrued[account];
         if (cakeBalance > 0) {
             // Transfer user cake and subtract the balance in supplyState
             BEP20Interface(cake).transfer(account, cakeBalance);
@@ -122,7 +127,12 @@ contract CCakeLPDelegate is CCapableErc20Delegate {
      * @param tokens The number of tokens to transfer
      * @return Whether or not the transfer succeeded
      */
-    function transferTokens(address spender, address src, address dst, uint tokens) internal returns (uint) {
+    function transferTokens(
+        address spender,
+        address src,
+        address dst,
+        uint256 tokens
+    ) internal returns (uint256) {
         harvestCake();
 
         updateCakeLPSupplyIndex();
@@ -138,7 +148,7 @@ contract CCakeLPDelegate is CCapableErc20Delegate {
      * @notice Gets balance of this contract in terms of the underlying
      * @return The quantity of underlying tokens owned by this contract
      */
-    function getCashPrior() internal view returns (uint) {
+    function getCashPrior() internal view returns (uint256) {
         IMasterChef.UserInfo memory userInfo = IMasterChef(masterChef).userInfo(pid, address(this));
         return userInfo.amount;
     }
@@ -149,7 +159,7 @@ contract CCakeLPDelegate is CCapableErc20Delegate {
      * @param amount Amount of underlying to transfer
      * @return The actual amount that is transferred
      */
-    function doTransferIn(address from, uint amount) internal returns (uint) {
+    function doTransferIn(address from, uint256 amount) internal returns (uint256) {
         // Perform the EIP-20 transfer in
         BEP20Interface token = BEP20Interface(underlying);
         require(token.transferFrom(from, address(this), amount), "unexpected EIP-20 transfer in return");
@@ -168,7 +178,7 @@ contract CCakeLPDelegate is CCapableErc20Delegate {
      * @param to Address to transfer funds to
      * @param amount Amount of underlying to transfer
      */
-    function doTransferOut(address payable to, uint amount) internal {
+    function doTransferOut(address payable to, uint256 amount) internal {
         // Withdraw the underlying tokens from masterChef.
         IMasterChef(masterChef).withdraw(pid, amount);
 
@@ -187,9 +197,9 @@ contract CCakeLPDelegate is CCapableErc20Delegate {
     }
 
     function updateCakeLPSupplyIndex() internal {
-        uint cakeBalance = cakeBalance();
-        uint cakeAccrued = sub_(cakeBalance, clpSupplyState.balance);
-        uint supplyTokens = CToken(address(this)).totalSupply();
+        uint256 cakeBalance = cakeBalance();
+        uint256 cakeAccrued = sub_(cakeBalance, clpSupplyState.balance);
+        uint256 supplyTokens = CToken(address(this)).totalSupply();
         Double memory ratio = supplyTokens > 0 ? fraction(cakeAccrued, supplyTokens) : Double({mantissa: 0});
         Double memory index = add_(Double({mantissa: clpSupplyState.index}), ratio);
 
@@ -203,14 +213,14 @@ contract CCakeLPDelegate is CCapableErc20Delegate {
         Double memory supplierIndex = Double({mantissa: clpSupplierIndex[supplier]});
         Double memory deltaIndex = sub_(supplyIndex, supplierIndex);
         if (deltaIndex.mantissa > 0) {
-            uint supplierTokens = CToken(address(this)).balanceOf(supplier);
-            uint supplierDelta = mul_(supplierTokens, deltaIndex);
+            uint256 supplierTokens = CToken(address(this)).balanceOf(supplier);
+            uint256 supplierDelta = mul_(supplierTokens, deltaIndex);
             cakeUserAccrued[supplier] = add_(cakeUserAccrued[supplier], supplierDelta);
             clpSupplierIndex[supplier] = supplyIndex.mantissa;
         }
     }
 
-    function cakeBalance() internal view returns (uint) {
+    function cakeBalance() internal view returns (uint256) {
         return BEP20Interface(cake).balanceOf(address(this));
     }
 }
