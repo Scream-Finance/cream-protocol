@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 import "../CErc20.sol";
 import "../Comptroller.sol";
 import "../CToken.sol";
-import "../PriceOracle.sol";
+import "../PriceOracle/PriceOracle.sol";
 import "../BEP20Interface.sol";
 import "../Exponential.sol";
 
