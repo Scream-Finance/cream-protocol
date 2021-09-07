@@ -51,19 +51,9 @@ contract CompoundLens is Exponential {
         (bool isListed, uint256 collateralFactorMantissa, ComptrollerV1Storage.Version version) = comptroller.markets(
             address(cToken)
         );
-        address underlyingAssetAddress;
-        uint256 underlyingDecimals;
+        CErc20 cErc20 = CErc20(address(cToken));
         uint256 collateralCap;
         uint256 totalCollateralTokens;
-
-        if (compareStrings(cToken.symbol(), "crETH")) {
-            underlyingAssetAddress = address(0);
-            underlyingDecimals = 18;
-        } else {
-            CErc20 cErc20 = CErc20(address(cToken));
-            underlyingAssetAddress = cErc20.underlying();
-            underlyingDecimals = EIP20Interface(cErc20.underlying()).decimals();
-        }
 
         if (version == ComptrollerV1Storage.Version.COLLATERALCAP) {
             collateralCap = CCollateralCapErc20Interface(address(cToken)).collateralCap();
@@ -84,9 +74,9 @@ contract CompoundLens is Exponential {
                 totalCollateralTokens: totalCollateralTokens,
                 isListed: isListed,
                 collateralFactorMantissa: collateralFactorMantissa,
-                underlyingAssetAddress: underlyingAssetAddress,
+                underlyingAssetAddress: cErc20.underlying(),
                 cTokenDecimals: cToken.decimals(),
-                underlyingDecimals: underlyingDecimals,
+                underlyingDecimals: EIP20Interface(cErc20.underlying()).decimals(),
                 version: version,
                 collateralCap: collateralCap,
                 underlyingPrice: priceOracle.getUnderlyingPrice(cToken),
@@ -131,19 +121,12 @@ contract CompoundLens is Exponential {
     function cTokenBalances(CToken cToken, address payable account) public returns (CTokenBalances memory) {
         address comptroller = address(cToken.comptroller());
         bool collateralEnabled = Comptroller(comptroller).checkMembership(account, cToken);
-        uint256 tokenBalance;
-        uint256 tokenAllowance;
         uint256 collateralBalance;
 
-        if (compareStrings(cToken.symbol(), "crETH")) {
-            tokenBalance = account.balance;
-            tokenAllowance = account.balance;
-        } else {
-            CErc20 cErc20 = CErc20(address(cToken));
-            EIP20Interface underlying = EIP20Interface(cErc20.underlying());
-            tokenBalance = underlying.balanceOf(account);
-            tokenAllowance = underlying.allowance(account, address(cToken));
-        }
+        CErc20 cErc20 = CErc20(address(cToken));
+        EIP20Interface underlying = EIP20Interface(cErc20.underlying());
+        uint256 tokenBalance = underlying.balanceOf(account);
+        uint256 tokenAllowance = underlying.allowance(account, address(cToken));
 
         if (collateralEnabled) {
             (, collateralBalance, , ) = cToken.getAccountSnapshot(account);
