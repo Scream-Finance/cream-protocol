@@ -8,22 +8,25 @@ const {
   makeCToken,
   makePriceOracle,
   makeMockAggregator,
+  makeMockFlags
 } = require('./Utils/Compound');
 
 describe('PriceOracleProxyUSD', () => {
   let root, accounts;
   let oracle, backingOracle, cUsdc, cDai, cOthers;
+  let flags;
 
   beforeEach(async () => {
     [root, ...accounts] = saddle.accounts;
     const comptroller = await makeComptroller();
     const mockEthUsdAggregator = await makeMockAggregator({answer: 1});
+    flags = await makeMockFlags();
     cUsdc = await makeCToken({comptroller: comptroller, supportMarket: true, underlyingOpts: {decimals: 6}});
     cDai = await makeCToken({comptroller: comptroller, supportMarket: true});
     cOthers = await makeCToken({comptroller: comptroller, supportMarket: true});
 
     backingOracle = await makePriceOracle();
-    oracle = await deploy('PriceOracleProxyUSD', [root, backingOracle._address, mockEthUsdAggregator._address]);
+    oracle = await deploy('PriceOracleProxyUSD', [root, backingOracle._address, mockEthUsdAggregator._address, flags._address]);
   });
 
   describe("constructor", () => {
@@ -79,6 +82,20 @@ describe('PriceOracleProxyUSD', () => {
       proxyPrice = await call(oracle, "getUnderlyingPrice", [cUsdc._address]);
       underlyingDecimals = await call(cUsdc.underlying, "decimals", []);
       expect(proxyPrice).toEqual(etherMantissa(price * 10**(18 - underlyingDecimals)).toFixed());
+    });
+
+    it("fallbacks to price oracle v1 if flag is raised", async () => {
+      const chainlinkPrice = 1;
+      const v1OraclePrice = 2;
+      const base = 0; // 0: USD
+
+      await setPrice(cOthers, chainlinkPrice, base);
+      await setAndVerifyBackingPrice(cOthers, v1OraclePrice);
+      let proxyPrice = await call(oracle, "getUnderlyingPrice", [cOthers._address]);
+      expect(proxyPrice).toEqual(etherMantissa(chainlinkPrice).toFixed());
+
+      await send(flags, 'setFlag', [true]);
+      await expect(call(oracle, "getUnderlyingPrice", [cOthers._address])).rejects.toRevert("revert Chainlink feeds are not being updated");
     });
 
     it("fallbacks to price oracle v1", async () => {

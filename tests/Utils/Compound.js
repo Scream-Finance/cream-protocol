@@ -388,6 +388,10 @@ async function makeLiquidityMining(opts = {}) {
   return await deploy('MockLiquidityMining', [comptroller._address]);
 }
 
+async function makeMockFlags() {
+  return await deploy('MockFlags');
+}
+
 async function preCSLP(underlying) {
   const sushiToken = await deploy('SushiToken');
   const masterChef = await deploy('MasterChef', [sushiToken._address]);
@@ -605,6 +609,7 @@ module.exports = {
   makeToken,
   makeCurveSwap,
   makeLiquidityMining,
+  makeMockFlags,
   makeCTokenAdmin,
 
   balanceOf,
