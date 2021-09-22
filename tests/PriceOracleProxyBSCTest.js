@@ -101,12 +101,12 @@ describe('PriceOracleProxyBSC', () => {
       // Band not support yet.
       await readAndVerifyProxyPrice(cOther, 12);
 
-      await send(oracle, "_setSymbols", [[cOther.underlying._address], [underlyingSymbol]]);
+      await send(oracle, "_setReferences", [[cOther.underlying._address], [underlyingSymbol]]);
 
       // Get price from Band reference.
       await readAndVerifyProxyPrice(cOther, 15);
 
-      await send(oracle, "_setSymbols", [[cOther.underlying._address], [""]]);
+      await send(oracle, "_setReferences", [[cOther.underlying._address], [""]]);
 
       // Fallback to price oracle v1.
       await readAndVerifyProxyPrice(cOther, 12);
@@ -148,21 +148,33 @@ describe('PriceOracleProxyBSC', () => {
   });
 
   describe("_setLPs", () => {
+    let lp, token;
+
+    beforeEach(async () => {
+      lp = await makeToken({kind: 'lp'});
+      token = await makeToken();
+    });
+
     it("set LPs successfully", async () => {
-      expect(await send(oracle, "_setLPs", [[cOther._address], [true]])).toSucceed();
+      expect(await send(oracle, "_setLPs", [[lp._address], [true]])).toSucceed();
     });
 
     it("fails to set LPs for non-admin", async () => {
-      await expect(send(oracle, "_setLPs", [[cOther._address], [true]], {from: accounts[0]})).rejects.toRevert("revert only the admin may set LPs");
+      await expect(send(oracle, "_setLPs", [[lp._address], [true]], {from: accounts[0]})).rejects.toRevert("revert only the admin may set LPs");
     });
 
     it("fails to set LPs for mismatched data", async () => {
-      await expect(send(oracle, "_setLPs", [[cOther._address], [true, true]])).rejects.toRevert("revert mismatched data");
+      await expect(send(oracle, "_setLPs", [[lp._address], [true, true]])).rejects.toRevert("revert mismatched data");
+    });
+
+    it("fails to set LPs for sanity check failed", async () => {
+      await expect(send(oracle, "_setLPs", [[token._address], [true]])).rejects.toRevert("revert");
     });
   });
 
-  describe("_setSymbols", () => {
+  describe("_setReferences", () => {
     const underlyingSymbol = "SYMBOL";
+    const price = etherMantissa(1);
     let token;
 
     beforeEach(async () => {
@@ -170,22 +182,26 @@ describe('PriceOracleProxyBSC', () => {
     });
 
     it("set symbol successfully", async () => {
-      expect(await send(oracle, "_setSymbols", [[token._address], [underlyingSymbol]])).toSucceed();
+      await send(
+        bandReference,
+        "setReferenceData",
+        [underlyingSymbol, price, 0, 0]);
+      expect(await send(oracle, "_setReferences", [[token._address], [underlyingSymbol]])).toSucceed();
     });
 
     it("fails to set symbol for non-admin", async () => {
-      await expect(send(oracle, "_setSymbols", [[token._address], [underlyingSymbol]], {from: accounts[0]})).rejects.toRevert("revert only the admin or guardian may set symbols");
+      await expect(send(oracle, "_setReferences", [[token._address], [underlyingSymbol]], {from: accounts[0]})).rejects.toRevert("revert only the admin or guardian may set the references");
       expect(await send(oracle, "_setGuardian", [accounts[0]])).toSucceed();
-      await expect(send(oracle, "_setSymbols", [[token._address], [underlyingSymbol]], {from: accounts[0]})).rejects.toRevert("revert guardian may only clear the symbol");
+      await expect(send(oracle, "_setReferences", [[token._address], [underlyingSymbol]], {from: accounts[0]})).rejects.toRevert("revert guardian may only clear the reference");
     });
 
     it("fails to set symbol for mismatched data", async () => {
-      await expect(send(oracle, "_setSymbols", [[token._address], []])).rejects.toRevert("revert mismatched data");
+      await expect(send(oracle, "_setReferences", [[token._address], []])).rejects.toRevert("revert mismatched data");
     });
 
     it("clear symbol successfully", async () => {
       expect(await send(oracle, "_setGuardian", [accounts[0]])).toSucceed();
-      expect(await send(oracle, "_setSymbols", [[token._address], [""]], {from: accounts[0]})).toSucceed();
+      expect(await send(oracle, "_setReferences", [[token._address], [""]], {from: accounts[0]})).toSucceed();
     });
   });
 });
