@@ -2,7 +2,7 @@ pragma solidity ^0.5.16;
 pragma experimental ABIEncoderV2;
 
 import "./CCapableErc20Delegate.sol";
-import "./BEP20Interface.sol";
+import "../BEP20Interface.sol";
 
 // Ref: https://bscscan.com/address/73feaa1ee314f8c655e354234017be2193c9e24e#code
 interface IMasterChef {
