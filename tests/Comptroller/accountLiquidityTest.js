@@ -4,6 +4,10 @@ const {
   enterMarkets,
   quickMint
 } = require('../Utils/Compound');
+const {
+  etherMantissa,
+  UInt256Max
+} = require('../Utils/Ethereum');
 
 describe('Comptroller', () => {
   let root, accounts;
@@ -20,6 +24,8 @@ describe('Comptroller', () => {
       await quickMint(cToken, user, amount);
       let result = await call(cToken.comptroller, 'getAccountLiquidity', [user]);
       expect(result).toHaveTrollError('PRICE_ERROR');
+
+      await expect(call(cToken.comptroller, 'getUserHealthFactor', [user])).rejects.toRevert('revert failed to get account liquidity');
     });
 
     it("allows a borrow up to collateralFactor, but not more", async () => {
@@ -71,6 +77,9 @@ describe('Comptroller', () => {
       expect(liquidity).toEqualNumber(collateral);
       expect(shortfall).toEqualNumber(0);
 
+      const healthFactor = await call(cToken3.comptroller, 'getUserHealthFactor', [user]);
+      expect(healthFactor).toEqualNumber(UInt256Max());
+
       ({1: liquidity, 2: shortfall} = await call(cToken3.comptroller, 'getHypotheticalAccountLiquidity', [user, cToken3._address, Math.floor(c2), 0]));
       expect(liquidity).toEqualNumber(collateral);
       expect(shortfall).toEqualNumber(0);
@@ -120,6 +129,31 @@ describe('Comptroller', () => {
       expect(error).toEqualNumber(0);
       expect(liquidity).toEqualNumber(amount * collateralFactor * exchangeRate * underlyingPrice);
       expect(shortfall).toEqualNumber(0);
+    });
+  });
+
+  describe("getUserHealthFactor", () => {
+    it('gets the user health factor', async () => {
+      const amount1 = 1e6, amount2 = 1e3, amount3 = 1e3, user = accounts[1];
+      const cf1 = 0.5, cf2 = 0.5, up1 = 1, up2 = 100;
+      const c1 = amount1 * cf1 * up1, c2 = amount2 * cf2 * up2
+      const collateral = Math.floor(c1 + c2);
+      const borrow = amount3 * up1;
+      const cToken1 = await makeCToken({supportMarket: true, collateralFactor: cf1, underlyingPrice: up1});
+      const cToken2 = await makeCToken({supportMarket: true, comptroller: cToken1.comptroller, collateralFactor: cf2, underlyingPrice: up2});
+
+      await enterMarkets([cToken1, cToken2], user);
+      await quickMint(cToken1, user, amount1);
+      await quickMint(cToken2, user, amount2);
+      await send(cToken1, 'harnessBorrowFresh', [user, amount3]);
+
+      ({0: error, 1: liquidity, 2: shortfall} = await call(cToken2.comptroller, 'getAccountLiquidity', [user]));
+      expect(error).toEqualNumber(0);
+      expect(liquidity).toEqualNumber(collateral - borrow);
+      expect(shortfall).toEqualNumber(0);
+
+      const healthFactor = await call(cToken2.comptroller, 'getUserHealthFactor', [user]);
+      expect(healthFactor).toEqualNumber(etherMantissa(collateral / borrow));
     });
   });
 });

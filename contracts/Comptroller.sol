@@ -340,7 +340,7 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
         }
 
         /* Otherwise, perform a hypothetical liquidity check to guard against shortfall */
-        (Error err, , uint256 shortfall) = getHypotheticalAccountLiquidityInternal(
+        (Error err, , uint256 shortfall, , ) = getHypotheticalAccountLiquidityInternal(
             redeemer,
             CToken(cToken),
             redeemTokens,
@@ -424,7 +424,7 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
             require(nextTotalBorrows < borrowCap, "market borrow cap reached");
         }
 
-        (Error err, , uint256 shortfall) = getHypotheticalAccountLiquidityInternal(
+        (Error err, , uint256 shortfall, , ) = getHypotheticalAccountLiquidityInternal(
             borrower,
             CToken(cToken),
             0,
@@ -769,7 +769,7 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
             uint256
         )
     {
-        (Error err, uint256 liquidity, uint256 shortfall) = getHypotheticalAccountLiquidityInternal(
+        (Error err, uint256 liquidity, uint256 shortfall, , ) = getHypotheticalAccountLiquidityInternal(
             account,
             CToken(0),
             0,
@@ -777,6 +777,27 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
         );
 
         return (uint256(err), liquidity, shortfall);
+    }
+
+    /**
+     * @notice Get user current health factor
+     * @dev The higher the helath factor is, the safer the state of the user's funds are against a liquidation scenario.
+     *      If the health factor reaches 1e18, the liquidation of your deposits will be triggered.
+     * @return The user health factor, scaled by 1e18
+     */
+    function getUserHealthFactor(address account) public view returns (uint256) {
+        (Error err, , , uint256 totalCollateral, uint256 totalBorrow) = getHypotheticalAccountLiquidityInternal(
+            account,
+            CToken(0),
+            0,
+            0
+        );
+        require(err == Error.NO_ERROR, "failed to get account liquidity");
+
+        if (totalBorrow == 0) {
+            return uint256(-1);
+        }
+        return div_(totalCollateral, Exp({mantissa: totalBorrow}));
     }
 
     /**
@@ -794,7 +815,13 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
             uint256
         )
     {
-        return getHypotheticalAccountLiquidityInternal(account, CToken(0), 0, 0);
+        (Error err, uint256 liquidity, uint256 shortfall, , ) = getHypotheticalAccountLiquidityInternal(
+            account,
+            CToken(0),
+            0,
+            0
+        );
+        return (err, liquidity, shortfall);
     }
 
     /**
@@ -821,7 +848,7 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
             uint256
         )
     {
-        (Error err, uint256 liquidity, uint256 shortfall) = getHypotheticalAccountLiquidityInternal(
+        (Error err, uint256 liquidity, uint256 shortfall, , ) = getHypotheticalAccountLiquidityInternal(
             account,
             CToken(cTokenModify),
             redeemTokens,
@@ -839,8 +866,10 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
      * @dev Note that we calculate the exchangeRateStored for each collateral cToken using stored data,
      *  without calculating accumulated interest.
      * @return (possible error code,
-                hypothetical account liquidity in excess of collateral requirements,
-     *          hypothetical account shortfall below collateral requirements)
+     *          hypothetical account liquidity in excess of collateral requirements,
+     *          hypothetical account shortfall below collateral requirements,
+     *          hypothetical account total collateral value,
+     *          hypothetical account total borrow value)
      */
     function getHypotheticalAccountLiquidityInternal(
         address account,
@@ -852,6 +881,8 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
         view
         returns (
             Error,
+            uint256,
+            uint256,
             uint256,
             uint256
         )
@@ -870,7 +901,7 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
             );
             if (oErr != 0) {
                 // semi-opaque error code, we assume NO_ERROR == 0 is invariant between upgrades
-                return (Error.SNAPSHOT_ERROR, 0, 0);
+                return (Error.SNAPSHOT_ERROR, 0, 0, 0, 0);
             }
 
             // Unlike compound protocol, getUnderlyingPrice is relatively expensive because we use ChainLink as our primary price feed.
@@ -885,7 +916,7 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
             // Get the normalized price of the asset
             vars.oraclePriceMantissa = oracle.getUnderlyingPrice(asset);
             if (vars.oraclePriceMantissa == 0) {
-                return (Error.PRICE_ERROR, 0, 0);
+                return (Error.PRICE_ERROR, 0, 0, 0, 0);
             }
             vars.oraclePrice = Exp({mantissa: vars.oraclePriceMantissa});
 
@@ -924,9 +955,21 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
 
         // These are safe, as the underflow condition is checked first
         if (vars.sumCollateral > vars.sumBorrowPlusEffects) {
-            return (Error.NO_ERROR, vars.sumCollateral - vars.sumBorrowPlusEffects, 0);
+            return (
+                Error.NO_ERROR,
+                vars.sumCollateral - vars.sumBorrowPlusEffects,
+                0,
+                vars.sumCollateral,
+                vars.sumBorrowPlusEffects
+            );
         } else {
-            return (Error.NO_ERROR, 0, vars.sumBorrowPlusEffects - vars.sumCollateral);
+            return (
+                Error.NO_ERROR,
+                0,
+                vars.sumBorrowPlusEffects - vars.sumCollateral,
+                vars.sumCollateral,
+                vars.sumBorrowPlusEffects
+            );
         }
     }
 
