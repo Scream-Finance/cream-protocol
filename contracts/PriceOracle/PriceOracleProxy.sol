@@ -172,13 +172,15 @@ contract PriceOracleProxy is PriceOracle, Exponential, Denominations {
 
         AggregatorInfo memory aggregatorInfo = aggregators[token];
         if (aggregatorInfo.isUsed) {
-            uint256 price = getPriceFromChainlink(aggregatorInfo.base, aggregatorInfo.quote);
-            if (aggregatorInfo.quote == Denominations.USD) {
-                // Convert the price to ETH based if it's USD based.
-                price = mul_(price, Exp({mantissa: getUsdcEthPrice()}));
+            (bool success, uint256 price) = getPriceFromChainlink(aggregatorInfo.base, aggregatorInfo.quote);
+            if (success) {
+                if (aggregatorInfo.quote == Denominations.USD) {
+                    // Convert the price to ETH based if it's USD based.
+                    price = mul_(price, Exp({mantissa: getUsdcEthPrice()}));
+                }
+                uint256 underlyingDecimals = EIP20Interface(token).decimals();
+                return mul_(price, 10**(18 - underlyingDecimals));
             }
-            uint256 underlyingDecimals = EIP20Interface(token).decimals();
-            return mul_(price, 10**(18 - underlyingDecimals));
         }
         return getPriceFromV1(token);
     }
@@ -187,14 +189,17 @@ contract PriceOracleProxy is PriceOracle, Exponential, Denominations {
      * @notice Get price from ChainLink
      * @param base The base token that ChainLink aggregator gets the price of
      * @param quote The quote token, currenlty support ETH and USD
-     * @return The price, scaled by 1e18
+     * @return (Success, The price, scaled by 1e18)
      */
-    function getPriceFromChainlink(address base, address quote) internal view returns (uint256) {
-        (, int256 price, , , ) = registry.latestRoundData(base, quote);
-        require(price > 0, "invalid price");
+    function getPriceFromChainlink(address base, address quote) internal view returns (bool, uint256) {
+        (, int256 price, , uint256 updatedAt, ) = registry.latestRoundData(base, quote);
+        // If the price from ChainLink hasn't been updated for 1 day, we consider it stale.
+        if (price == 0 || add_(updatedAt, 1 days) < getBlockTimestamp()) {
+            return (false, 0);
+        }
 
         // Extend the decimals to 1e18.
-        return mul_(uint256(price), 10**(18 - uint256(registry.decimals(base, quote))));
+        return (true, mul_(uint256(price), 10**(18 - uint256(registry.decimals(base, quote)))));
     }
 
     /**
@@ -277,6 +282,14 @@ contract PriceOracleProxy is PriceOracle, Exponential, Denominations {
      */
     function getPriceFromV1(address token) internal view returns (uint256) {
         return v1PriceOracle.assetPrices(token);
+    }
+
+    /**
+     * @notice Get the curent block timestamp
+     * @return The curent block timestamp
+     */
+    function getBlockTimestamp() internal view returns (uint256) {
+        return block.timestamp;
     }
 
     /*** Admin or guardian functions ***/
