@@ -47,7 +47,7 @@ describe('PriceOracleProxy', () => {
     cYv2CrvLP = await makeCToken({comptroller: cEth.comptroller, supportMarket: true, underlying: yv2CrvLP});
 
     backingOracle = await makePriceOracle();
-    oracle = await deploy('PriceOracleProxy',
+    oracle = await deploy('PriceOracleProxyHarness',
       [
         root,
         backingOracle._address,
@@ -195,6 +195,30 @@ describe('PriceOracleProxy', () => {
       await setPrice(cOther.underlying._address, cOther.underlying._address, usdAddress, price);
       let proxyPrice = await call(oracle, "getUnderlyingPrice", [cOther._address]);
       expect(Number(proxyPrice)).toEqual(0.0005 * 1e18);
+    });
+
+    it("fallbacks to v1 if the price from chainlink is invalid", async () => {
+      const v1Price = 10;
+      const oraclePrice = '0';
+
+      await setAndVerifyBackingPrice(cOther, v1Price);
+      await setPrice(cOther.underlying._address, cOther.underlying._address, ethAddress, oraclePrice);
+      await readAndVerifyProxyPrice(cOther, v1Price);
+    });
+
+    it("fallbacks to v1 if the price from chainlink is stale", async () => {
+      const v1Price = 10;
+      const oraclePrice = '2';
+
+      const timestamp1 = 10000;
+      const timestamp2 = 96500; // greater than timestamp1 + 86400 (1 day)
+      await send(mockAggregator, "setBlockTimestamp", [timestamp1]);
+      await send(oracle, "setBlockTimestamp", [timestamp2]);
+
+      await setAndVerifyBackingPrice(cOther, v1Price);
+      await setPrice(cOther.underlying._address, cOther.underlying._address, ethAddress, oraclePrice);
+
+      await readAndVerifyProxyPrice(cOther, v1Price);
     });
   });
 

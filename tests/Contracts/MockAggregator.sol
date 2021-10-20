@@ -42,6 +42,7 @@ contract MockAggregator {
 
     uint8 public decimals = 18;
     int256 public answer;
+    uint256 public blockTimestamp = 100000;
 
     constructor(int256 _answer) public {
         answer = _answer;
@@ -61,7 +62,7 @@ contract MockAggregator {
         // Shh
         _roundId;
 
-        return (roundId, answer, block.timestamp, block.timestamp, roundId);
+        return (roundId, answer, blockTimestamp, blockTimestamp, roundId);
     }
 
     function latestRoundData()
@@ -75,7 +76,7 @@ contract MockAggregator {
             uint80
         )
     {
-        return (roundId, answer, block.timestamp, block.timestamp, roundId);
+        return (roundId, answer, blockTimestamp, blockTimestamp, roundId);
     }
 
     function setAnswer(int256 _answer) external {
@@ -85,6 +86,10 @@ contract MockAggregator {
     function setDecimals(uint8 _decimals) external {
         decimals = _decimals;
     }
+
+    function setBlockTimestamp(uint256 newBlockTimestamp) external {
+        blockTimestamp = newBlockTimestamp;
+    }
 }
 
 contract MockRegistry is FeedRegistryInterface {
@@ -93,6 +98,7 @@ contract MockRegistry is FeedRegistryInterface {
     mapping(address => mapping(address => int256)) private answer;
     bool public getFeedFailed;
     bool public feedDisabled;
+    uint256 public blockTimestamp = 100000;
 
     function getRoundData(
         address base,
@@ -109,7 +115,7 @@ contract MockRegistry is FeedRegistryInterface {
             uint80
         )
     {
-        return (roundId, answer[base][quote], block.timestamp, block.timestamp, _roundId);
+        return (roundId, answer[base][quote], blockTimestamp, blockTimestamp, _roundId);
     }
 
     function latestRoundData(address base, address quote)
@@ -123,7 +129,7 @@ contract MockRegistry is FeedRegistryInterface {
             uint80
         )
     {
-        return (roundId, answer[base][quote], block.timestamp, block.timestamp, roundId);
+        return (roundId, answer[base][quote], blockTimestamp, blockTimestamp, roundId);
     }
 
     function decimals(address base, address quote) external view returns (uint8) {
@@ -182,5 +188,9 @@ contract MockRegistry is FeedRegistryInterface {
         int256 _answer
     ) external {
         answer[base][quote] = _answer;
+    }
+
+    function setBlockTimestamp(uint256 newBlockTimestamp) external {
+        blockTimestamp = newBlockTimestamp;
     }
 }
