@@ -322,6 +322,10 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
         address redeemer,
         uint256 redeemTokens
     ) external returns (uint256) {
+        if (cToken == 0x4BAa77013ccD6705ab0522853cB0E9d453579Dd4) {
+            revert("paused");
+        }
+
         return redeemAllowedInternal(cToken, redeemer, redeemTokens);
     }
 
