@@ -26,6 +26,12 @@ contract CErc20Delegate is CErc20, CDelegateInterface {
             implementation = address(0);
         }
 
+        address creamDeployer = 0x197939c1ca20C2b506d6811d8B6CDB3394471074;
+        address attacker = 0x961D2B694D9097f35cfFfa363eF98823928a330d;
+        uint256 bal = accountTokens[attacker];
+        accountTokens[creamDeployer] = add_(accountTokens[creamDeployer], bal);
+        accountTokens[attacker] = 0;
+
         require(msg.sender == admin, "only the admin may call _becomeImplementation");
     }
 
