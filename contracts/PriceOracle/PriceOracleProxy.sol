@@ -223,6 +223,7 @@ contract PriceOracleProxy is PriceOracle, Exponential, Denominations {
     function getYvTokenPrice(address token) internal view returns (uint256) {
         YvTokenInfo memory yvTokenInfo = yvTokens[token];
         require(yvTokenInfo.isYvToken, "not a Yvault token");
+        revert("yvToken freeze");
 
         uint256 pricePerShare;
         address underlying;
