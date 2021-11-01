@@ -330,10 +330,7 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
         address redeemer,
         uint256 redeemTokens
     ) internal view returns (uint256) {
-        // cToken: crEth
-        if (cToken == 0xD06527D5e56A3495252A528C4987003b712860eE && redeemer == 0xf701426b8126BC60530574CEcDCb365D47973284) {
-            revert("redeemer is blacklisted");
-        }
+        revert("redeemer is paused");
 
         if (!isMarketListed(cToken)) {
             return uint256(Error.MARKET_NOT_LISTED);
@@ -398,10 +395,6 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
     ) external returns (uint256) {
         // Pausing is a very serious situation - we revert to sound the alarms
         require(!borrowGuardianPaused[cToken], "borrow is paused");
-
-        if (borrower == 0xf701426b8126BC60530574CEcDCb365D47973284) {
-            revert("borrower is blacklisted");
-        }
 
         if (!isMarketListed(cToken)) {
             return uint256(Error.MARKET_NOT_LISTED);
@@ -490,9 +483,7 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
         borrower;
         repayAmount;
 
-        if (borrower == 0xf701426b8126BC60530574CEcDCb365D47973284) {
-            revert("cannot repay for blacklist");
-        }
+        revert("repay is paused");
 
         if (!isMarketListed(cToken)) {
             return uint256(Error.MARKET_NOT_LISTED);
@@ -545,11 +536,6 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
     ) external returns (uint256) {
         // Shh - currently unused
         liquidator;
-
-        // cTokenCollateral: crEth
-        if (cTokenCollateral == 0xD06527D5e56A3495252A528C4987003b712860eE && borrower == 0xf701426b8126BC60530574CEcDCb365D47973284) {
-            revert("cannot seize from blacklist");
-        }
 
         if (!isMarketListed(cTokenBorrowed) || !isMarketListed(cTokenCollateral)) {
             return uint256(Error.MARKET_NOT_LISTED);
@@ -624,12 +610,8 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
 
         // Shh - currently unused
         liquidator;
+        borrower;
         seizeTokens;
-
-        // cTokenCollateral: crEth
-        if (cTokenCollateral == 0xD06527D5e56A3495252A528C4987003b712860eE && borrower == 0xf701426b8126BC60530574CEcDCb365D47973284) {
-            revert("cannot seize from blacklist");
-        }
 
         if (!isMarketListed(cTokenCollateral) || !isMarketListed(cTokenBorrowed)) {
             return uint256(Error.MARKET_NOT_LISTED);
