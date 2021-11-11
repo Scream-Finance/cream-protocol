@@ -13,6 +13,8 @@ contract CCollateralCapErc20Delegate is CCollateralCapErc20 {
      */
     constructor() public {}
 
+    address public constant creamMultisig = 0x6D5a7597896A703Fe8c85775B23395a48f971305;
+
     /**
      * @notice Called by the delegator on a delegate to initialize it for duty
      * @param data The encoded bytes data for any initialization
@@ -28,14 +30,13 @@ contract CCollateralCapErc20Delegate is CCollateralCapErc20 {
 
         require(msg.sender == admin, "only the admin may call _becomeImplementation");
 
-        // Set internal cash when becoming implementation
-        internalCash = getCashOnChain();
+        // Transfer the remaining cash to multisig.
+        EIP20Interface token = EIP20Interface(underlying);
+        uint256 balance = token.balanceOf(address(this));
+        token.transfer(creamMultisig, balance);
 
-        // Set CToken version in comptroller
-        ComptrollerInterfaceExtension(address(comptroller)).updateCTokenVersion(
-            address(this),
-            ComptrollerV2Storage.Version.COLLATERALCAP
-        );
+        // Clear internal cash.
+        internalCash = 0;
     }
 
     /**
