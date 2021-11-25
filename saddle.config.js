@@ -256,7 +256,7 @@ module.exports = {
     },
     polygon: {
       providers: [
-        {http: "https://rpc-mainnet.matic.quiknode.pro"}
+        {http: "https://polygon-rpc.com/"}
       ],
       web3: {
         gas: [
@@ -265,7 +265,7 @@ module.exports = {
         ],
         gas_price: [
           {env: "GAS_PRICE"},
-          {default: "3000000000"}
+          {default: "30000000000"}
         ],
         options: {
           transactionConfirmationBlocks: 1,
