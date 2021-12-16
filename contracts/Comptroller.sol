@@ -1350,7 +1350,7 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
         address market,
         uint256 creditLimit
     ) public {
-        require(msg.sender == admin, "only admin can set protocol credit limit");
+        require(msg.sender == admin, "admin only");
         require(addToMarketInternal(CToken(market), protocol) == Error.NO_ERROR, "invalid market");
 
         creditLimits[protocol][market] = creditLimit;
