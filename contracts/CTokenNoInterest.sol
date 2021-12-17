@@ -236,7 +236,7 @@ contract CTokenNoInterest is CTokenInterface, Exponential, TokenErrorReporter {
      * @return The total borrows with interest
      */
     function totalBorrowsCurrent() external nonReentrant returns (uint256) {
-        require(accrueInterest() == uint256(Error.NO_ERROR), "accrue interest failed");
+        accrueInterest();
         return totalBorrows;
     }
 
@@ -246,7 +246,7 @@ contract CTokenNoInterest is CTokenInterface, Exponential, TokenErrorReporter {
      * @return The calculated balance
      */
     function borrowBalanceCurrent(address account) external nonReentrant returns (uint256) {
-        require(accrueInterest() == uint256(Error.NO_ERROR), "accrue interest failed");
+        accrueInterest();
         return borrowBalanceStored(account);
     }
 
@@ -293,7 +293,7 @@ contract CTokenNoInterest is CTokenInterface, Exponential, TokenErrorReporter {
      * @return Calculated exchange rate scaled by 1e18
      */
     function exchangeRateCurrent() public nonReentrant returns (uint256) {
-        require(accrueInterest() == uint256(Error.NO_ERROR), "accrue interest failed");
+        accrueInterest();
         return exchangeRateStored();
     }
 
