@@ -219,7 +219,7 @@ describe('Comptroller', () => {
 
     it("fails if not called by admin", async () => {
       const cToken = await makeCToken({supportMarket: true});
-      await expect(send(cToken.comptroller, '_setCreditLimit', [accounts[0], cToken._address, creditLimit], {from: accounts[0]})).rejects.toRevert("revert only admin can set protocol credit limit");
+      await expect(send(cToken.comptroller, '_setCreditLimit', [accounts[0], cToken._address, creditLimit], {from: accounts[0]})).rejects.toRevert("revert admin only");
     });
 
     it("fails for invalid market", async () => {
