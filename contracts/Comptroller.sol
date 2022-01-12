@@ -474,10 +474,13 @@ contract Comptroller is ComptrollerV7Storage, ComptrollerInterface, ComptrollerE
         uint256 repayAmount
     ) external returns (uint256) {
         // Shh - currently unused
-        payer;
         repayAmount;
 
         require(isMarketListed(cToken), "market not listed");
+
+        if (isCreditAccount(borrower, cToken)) {
+            require(borrower == payer, "cannot repay on behalf of credit account");
+        }
 
         if (liquidityMining != address(0)) {
             address[] memory accounts = new address[](1);
