@@ -48,7 +48,7 @@ contract CErc20Harness is CErc20Immutable {
         uint256 amount,
         bool isNative
     ) internal {
-        require(failTransferToAddresses[to] == false, "TOKEN_TRANSFER_OUT_FAILED");
+        require(failTransferToAddresses[to] == false, "transfer failed");
         return super.doTransferOut(to, amount, isNative);
     }
 
@@ -395,7 +395,7 @@ contract CErc20DelegateHarness is CErc20Delegate {
         uint256 amount,
         bool isNative
     ) internal {
-        require(failTransferToAddresses[to] == false, "TOKEN_TRANSFER_OUT_FAILED");
+        require(failTransferToAddresses[to] == false, "transfer failed");
         return super.doTransferOut(to, amount, isNative);
     }
 
@@ -554,7 +554,7 @@ contract CCollaterlaCapErc20CheckRepayDelegateHarness is CCollateralCapErc20Chec
         uint256 amount,
         bool isNative
     ) internal {
-        require(failTransferToAddresses[to] == false, "TOKEN_TRANSFER_OUT_FAILED");
+        require(failTransferToAddresses[to] == false, "transfer failed");
         return super.doTransferOut(to, amount, isNative);
     }
 
@@ -1064,7 +1064,7 @@ contract CCollateralCapErc20DelegateHarness is CCollateralCapErc20Delegate {
         uint256 amount,
         bool isNative
     ) internal {
-        require(failTransferToAddresses[to] == false, "TOKEN_TRANSFER_OUT_FAILED");
+        require(failTransferToAddresses[to] == false, "transfer failed");
         return super.doTransferOut(to, amount, isNative);
     }
 
@@ -1256,7 +1256,7 @@ contract CWrappedNativeDelegateHarness is CWrappedNativeDelegate {
         uint256 amount,
         bool isNative
     ) internal {
-        require(failTransferToAddresses[to] == false, "TOKEN_TRANSFER_OUT_FAILED");
+        require(failTransferToAddresses[to] == false, "transfer failed");
         return super.doTransferOut(to, amount, isNative);
     }
 
