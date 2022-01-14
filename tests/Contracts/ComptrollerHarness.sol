@@ -1,6 +1,7 @@
 pragma solidity ^0.5.16;
 
 import "../../contracts/Comptroller.sol";
+import "../../contracts/Legacy/ComptrollerG1.sol";
 import "../../contracts/CToken.sol";
 import "../../contracts/PriceOracle/PriceOracle.sol";
 
@@ -17,75 +18,12 @@ contract ComptrollerRopsten is Comptroller {
 }
 
 contract ComptrollerHarness is Comptroller {
-    address compAddress;
     uint256 public blockNumber;
 
     constructor() public Comptroller() {}
 
     function setPauseGuardian(address harnessedPauseGuardian) public {
         pauseGuardian = harnessedPauseGuardian;
-    }
-
-    function setCompSupplyState(
-        address cToken,
-        uint224 index,
-        uint32 blockNumber_
-    ) public {
-        compSupplyState[cToken].index = index;
-        compSupplyState[cToken].block = blockNumber_;
-    }
-
-    function setCompBorrowState(
-        address cToken,
-        uint224 index,
-        uint32 blockNumber_
-    ) public {
-        compBorrowState[cToken].index = index;
-        compBorrowState[cToken].block = blockNumber_;
-    }
-
-    function setCompAccrued(address user, uint256 userAccrued) public {
-        compAccrued[user] = userAccrued;
-    }
-
-    function setCompAddress(address compAddress_) public {
-        compAddress = compAddress_;
-    }
-
-    function getCompAddress() public view returns (address) {
-        return compAddress;
-    }
-
-    function setCompBorrowerIndex(
-        address cToken,
-        address borrower,
-        uint256 index
-    ) public {
-        compBorrowerIndex[cToken][borrower] = index;
-    }
-
-    function setCompSupplierIndex(
-        address cToken,
-        address supplier,
-        uint256 index
-    ) public {
-        compSupplierIndex[cToken][supplier] = index;
-    }
-
-    function harnessDistributeBorrowerComp(
-        address cToken,
-        address borrower,
-        uint256 marketBorrowIndexMantissa
-    ) public {
-        distributeBorrowerComp(cToken, borrower, Exp({mantissa: marketBorrowIndexMantissa}));
-    }
-
-    function harnessDistributeSupplierComp(address cToken, address supplier) public {
-        distributeSupplierComp(cToken, supplier);
-    }
-
-    function harnessTransferComp(address user, uint256 userAccrued) public returns (uint256) {
-        return transferComp(user, userAccrued);
     }
 
     function harnessFastForward(uint256 blocks) public returns (uint256) {
@@ -100,24 +38,37 @@ contract ComptrollerHarness is Comptroller {
     function getBlockNumber() public view returns (uint256) {
         return blockNumber;
     }
+}
 
-    function getCompMarkets() public view returns (address[] memory) {
-        uint256 m = allMarkets.length;
-        uint256 n = 0;
-        for (uint256 i = 0; i < m; i++) {
-            if (markets[address(allMarkets[i])].isComped) {
-                n++;
-            }
-        }
+// CompoundComptrollerHarness is only used for CCTokenHarness
+contract CompoundComptrollerHarness is ComptrollerHarness {
+    address compAddress;
 
-        address[] memory compMarkets = new address[](n);
-        uint256 k = 0;
-        for (uint256 i = 0; i < m; i++) {
-            if (markets[address(allMarkets[i])].isComped) {
-                compMarkets[k++] = address(allMarkets[i]);
-            }
-        }
-        return compMarkets;
+    constructor() public ComptrollerHarness() {}
+
+    function setCompAddress(address compAddress_) public {
+        compAddress = compAddress_;
+    }
+
+    function getCompAddress() public view returns (address) {
+        return compAddress;
+    }
+
+    function setCompAccrued(address user, uint256 userAccrued) public {
+        compAccrued[user] = userAccrued;
+    }
+
+    function claimComp(
+        address[] memory holders,
+        CToken[] memory cTokens,
+        bool borrowers,
+        bool suppliers
+    ) public {
+        // unused
+        holders;
+        cTokens;
+        borrowers;
+        suppliers;
     }
 }
 
@@ -134,7 +85,7 @@ contract ComptrollerBorked {
         _maxAssets;
         _reinitializing;
 
-        require(msg.sender == unitroller.admin(), "unitroller admin only");
+        require(msg.sender == unitroller.admin(), "only unitroller admin can change brains");
         unitroller._acceptImplementation();
     }
 }

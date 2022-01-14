@@ -4,17 +4,8 @@ import "../../contracts/Comptroller.sol";
 
 contract ComptrollerScenario is Comptroller {
     uint256 public blockNumber;
-    address compAddress;
 
     constructor() public Comptroller() {}
-
-    function setCompAddress(address compAddress_) public {
-        compAddress = compAddress_;
-    }
-
-    function getCompAddress() public view returns (address) {
-        return compAddress;
-    }
 
     function fastForward(uint256 blocks) public returns (uint256) {
         blockNumber += blocks;

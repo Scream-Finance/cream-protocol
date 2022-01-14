@@ -226,30 +226,6 @@ async function sendAny(world: World, from:string, comptroller: Comptroller, sign
   return world;
 }
 
-async function refreshCompSpeeds(world: World, from: string, comptroller: Comptroller): Promise<World> {
-  let invokation = await invoke(world, comptroller.methods.refreshCompSpeeds(), from, ComptrollerErrorReporter);
-
-  world = addAction(
-    world,
-    `Refreshed COMP speeds`,
-    invokation
-  );
-
-  return world;
-}
-
-async function claimComp(world: World, from: string, comptroller: Comptroller, holder: string): Promise<World> {
-  let invokation = await invoke(world, comptroller.methods.claimComp(holder), from, ComptrollerErrorReporter);
-
-  world = addAction(
-    world,
-    `Comp claimed by ${holder}`,
-    invokation
-  );
-
-  return world;
-}
-
 async function printLiquidity(world: World, comptroller: Comptroller): Promise<World> {
   let enterEvents = await getPastEvents(world, comptroller, 'StdComptroller', 'MarketEntered');
   let addresses = enterEvents.map((event) => event.returnValues['account']);
@@ -702,32 +678,6 @@ export function comptrollerCommands() {
         new Arg("callArgs", getCoreValue, {variadic: true, mapped: true})
       ],
       (world, from, {comptroller, signature, callArgs}) => sendAny(world, from, comptroller, signature.val, rawValues(callArgs))
-    ),
-
-    new Command<{comptroller: Comptroller}>(`
-      #### RefreshCompSpeeds
-
-      * "Comptroller RefreshCompSpeeds" - Recalculates all the COMP market speeds
-      * E.g. "Comptroller RefreshCompSpeeds
-      `,
-      "RefreshCompSpeeds",
-      [
-        new Arg("comptroller", getComptroller, {implicit: true})
-      ],
-      (world, from, {comptroller}) => refreshCompSpeeds(world, from, comptroller)
-    ),
-    new Command<{comptroller: Comptroller, holder: AddressV}>(`
-      #### ClaimComp
-
-      * "Comptroller ClaimComp <holder>" - Claims comp
-      * E.g. "Comptroller ClaimComp Geoff
-      `,
-      "ClaimComp",
-      [
-        new Arg("comptroller", getComptroller, {implicit: true}),
-        new Arg("holder", getAddressV)
-      ],
-      (world, from, {comptroller, holder}) => claimComp(world, from, comptroller, holder.val)
     ),
     new Command<{comptroller: Comptroller, cTokens: CToken[], supplyCaps: NumberV[]}>(`
       #### SetMarketSupplyCaps
