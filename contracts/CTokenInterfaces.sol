@@ -157,6 +157,12 @@ contract CCollateralCapStorage {
      * @notice Collateral cap for this CToken, zero for no cap.
      */
     uint256 public collateralCap;
+
+    address public flashloanLender;
+}
+
+contract CWrappedNativeStorage {
+    address public flashloanLender;
 }
 
 /*** Interface ***/
@@ -356,7 +362,7 @@ contract CErc20Interface is CErc20Storage {
     function _addReserves(uint256 addAmount) external returns (uint256);
 }
 
-contract CWrappedNativeInterface is CErc20Interface {
+contract CWrappedNativeInterface is CErc20Interface, CWrappedNativeStorage {
     /**
      * @notice Flash loan fee ratio
      */
