@@ -1,16 +1,8 @@
 pragma solidity ^0.5.16;
 
 import "./CToken.sol";
-import "./ComptrollerStorage.sol";
-
-/**
- * @title Cream's Comptroller interface extension
- */
-interface ComptrollerInterfaceExtension {
-    function checkMembership(address account, CToken cToken) external view returns (bool);
-
-    function updateCTokenVersion(address cToken, ComptrollerV2Storage.Version version) external;
-}
+import "./ERC3156FlashLenderInterface.sol";
+import "./ERC3156FlashBorrowerInterface.sol";
 
 /**
  * @title Cream's CCollateralCapErc20 Contract
@@ -28,13 +20,15 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @param symbol_ ERC-20 symbol of this token
      * @param decimals_ ERC-20 decimal precision of this token
      */
-    function initialize(address underlying_,
-                        ComptrollerInterface comptroller_,
-                        InterestRateModel interestRateModel_,
-                        uint initialExchangeRateMantissa_,
-                        string memory name_,
-                        string memory symbol_,
-                        uint8 decimals_) public {
+    function initialize(
+        address underlying_,
+        ComptrollerInterface comptroller_,
+        InterestRateModel interestRateModel_,
+        uint256 initialExchangeRateMantissa_,
+        string memory name_,
+        string memory symbol_,
+        uint8 decimals_
+    ) public {
         // CToken initialize does the bulk of the work
         super.initialize(comptroller_, interestRateModel_, initialExchangeRateMantissa_, name_, symbol_, decimals_);
 
@@ -51,9 +45,9 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @param mintAmount The amount of the underlying asset to supply
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function mint(uint mintAmount) external returns (uint) {
-        (uint err,) = mintInternal(mintAmount);
-        return err;
+    function mint(uint256 mintAmount) external returns (uint256) {
+        (uint256 err, ) = mintInternal(mintAmount, false);
+        require(err == 0, "mint failed");
     }
 
     /**
@@ -62,8 +56,8 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @param redeemTokens The number of cTokens to redeem into underlying
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function redeem(uint redeemTokens) external returns (uint) {
-        return redeemInternal(redeemTokens);
+    function redeem(uint256 redeemTokens) external returns (uint256) {
+        require(redeemInternal(redeemTokens, false) == 0, "redeem failed");
     }
 
     /**
@@ -72,17 +66,17 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @param redeemAmount The amount of underlying to redeem
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function redeemUnderlying(uint redeemAmount) external returns (uint) {
-        return redeemUnderlyingInternal(redeemAmount);
+    function redeemUnderlying(uint256 redeemAmount) external returns (uint256) {
+        require(redeemUnderlyingInternal(redeemAmount, false) == 0, "redeem underlying failed");
     }
 
     /**
-      * @notice Sender borrows assets from the protocol to their own address
-      * @param borrowAmount The amount of the underlying asset to borrow
-      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
-      */
-    function borrow(uint borrowAmount) external returns (uint) {
-        return borrowInternal(borrowAmount);
+     * @notice Sender borrows assets from the protocol to their own address
+     * @param borrowAmount The amount of the underlying asset to borrow
+     * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
+     */
+    function borrow(uint256 borrowAmount) external returns (uint256) {
+        require(borrowInternal(borrowAmount, false) == 0, "borrow failed");
     }
 
     /**
@@ -90,9 +84,9 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @param repayAmount The amount to repay
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function repayBorrow(uint repayAmount) external returns (uint) {
-        (uint err,) = repayBorrowInternal(repayAmount);
-        return err;
+    function repayBorrow(uint256 repayAmount) external returns (uint256) {
+        (uint256 err, ) = repayBorrowInternal(repayAmount, false);
+        require(err == 0, "repay failed");
     }
 
     /**
@@ -101,9 +95,9 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @param repayAmount The amount to repay
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function repayBorrowBehalf(address borrower, uint repayAmount) external returns (uint) {
-        (uint err,) = repayBorrowBehalfInternal(borrower, repayAmount);
-        return err;
+    function repayBorrowBehalf(address borrower, uint256 repayAmount) external returns (uint256) {
+        (uint256 err, ) = repayBorrowBehalfInternal(borrower, repayAmount, false);
+        require(err == 0, "repay behalf failed");
     }
 
     /**
@@ -114,9 +108,13 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @param cTokenCollateral The market in which to seize collateral from the borrower
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function liquidateBorrow(address borrower, uint repayAmount, CTokenInterface cTokenCollateral) external returns (uint) {
-        (uint err,) = liquidateBorrowInternal(borrower, repayAmount, cTokenCollateral);
-        return err;
+    function liquidateBorrow(
+        address borrower,
+        uint256 repayAmount,
+        CTokenInterface cTokenCollateral
+    ) external returns (uint256) {
+        (uint256 err, ) = liquidateBorrowInternal(borrower, repayAmount, cTokenCollateral, false);
+        require(err == 0, "liquidate borrow failed");
     }
 
     /**
@@ -124,16 +122,16 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @param addAmount The amount fo underlying token to add as reserves
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function _addReserves(uint addAmount) external returns (uint) {
-        return _addReservesInternal(addAmount);
+    function _addReserves(uint256 addAmount) external returns (uint256) {
+        require(_addReservesInternal(addAmount, false) == 0, "add reserves failed");
     }
 
     /**
      * @notice Set the given collateral cap for the market.
      * @param newCollateralCap New collateral cap for this market. A value of 0 corresponds to no cap.
      */
-    function _setCollateralCap(uint newCollateralCap) external {
-        require(msg.sender == admin, "only admin can set collateral cap");
+    function _setCollateralCap(uint256 newCollateralCap) external {
+        require(msg.sender == admin, "admin only");
 
         collateralCap = newCollateralCap;
         emit NewCollateralCap(address(this), newCollateralCap);
@@ -142,13 +140,102 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
     /**
      * @notice Absorb excess cash into reserves.
      */
-    function gulp() external {
+    function gulp() external nonReentrant {
         uint256 cashOnChain = getCashOnChain();
         uint256 cashPrior = getCashPrior();
 
-        uint excessCash = sub_(cashOnChain, cashPrior);
+        uint256 excessCash = sub_(cashOnChain, cashPrior);
         totalReserves = add_(totalReserves, excessCash);
         internalCash = cashOnChain;
+    }
+
+    /**
+     * @notice Get the max flash loan amount
+     */
+    function maxFlashLoan() external view returns (uint256) {
+        uint256 amount = 0;
+        if (
+            ComptrollerInterfaceExtension(address(comptroller)).flashloanAllowed(address(this), address(0), amount, "")
+        ) {
+            amount = getCashPrior();
+        }
+        return amount;
+    }
+
+    /**
+     * @notice Get the flash loan fees
+     * @param amount amount of token to borrow
+     */
+    function flashFee(uint256 amount) external view returns (uint256) {
+        require(
+            ComptrollerInterfaceExtension(address(comptroller)).flashloanAllowed(address(this), address(0), amount, ""),
+            "flashloan is paused"
+        );
+        return div_(mul_(amount, flashFeeBips), 10000);
+    }
+
+    /**
+     * @notice Flash loan funds to a given account.
+     * @param receiver The receiver address for the funds
+     * @param initiator flash loan initiator
+     * @param amount The amount of the funds to be loaned
+     * @param data The other data
+     * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
+     */
+    function flashLoan(
+        ERC3156FlashBorrowerInterface receiver,
+        address initiator,
+        uint256 amount,
+        bytes calldata data
+    ) external nonReentrant returns (bool) {
+        require(amount > 0, "invalid flashloan amount");
+        accrueInterest();
+        require(
+            ComptrollerInterfaceExtension(address(comptroller)).flashloanAllowed(
+                address(this),
+                address(receiver),
+                amount,
+                data
+            ),
+            "flashloan is paused"
+        );
+        uint256 cashOnChainBefore = getCashOnChain();
+        uint256 cashBefore = getCashPrior();
+        require(cashBefore >= amount, "INSUFFICIENT_LIQUIDITY");
+
+        // 1. calculate fee, 1 bips = 1/10000
+        uint256 totalFee = this.flashFee(amount);
+
+        // 2. transfer fund to receiver
+        doTransferOut(address(uint160(address(receiver))), amount, false);
+
+        // 3. update totalBorrows
+        totalBorrows = add_(totalBorrows, amount);
+
+        // 4. execute receiver's callback function
+
+        require(
+            receiver.onFlashLoan(initiator, underlying, amount, totalFee, data) ==
+                keccak256("ERC3156FlashBorrowerInterface.onFlashLoan"),
+            "IERC3156: Callback failed"
+        );
+
+        // 5. take amount + fee from receiver, then check balance
+        uint256 repaymentAmount = add_(amount, totalFee);
+        doTransferIn(address(receiver), repaymentAmount, false);
+
+        uint256 cashOnChainAfter = getCashOnChain();
+
+        require(cashOnChainAfter == add_(cashOnChainBefore, totalFee), "BALANCE_INCONSISTENT");
+
+        // 6. update reserves and internal cash and totalBorrows
+        uint256 reservesFee = mul_ScalarTruncate(Exp({mantissa: reserveFactorMantissa}), totalFee);
+        totalReserves = add_(totalReserves, reservesFee);
+        internalCash = add_(cashBefore, totalFee);
+        totalBorrows = sub_(totalBorrows, amount);
+
+        emit Flashloan(address(receiver), amount, totalFee, reservesFee);
+        return true;
     }
 
     /**
@@ -157,13 +244,13 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @dev This function could only be called by comptroller.
      * @return The actual registered amount of collateral
      */
-    function registerCollateral(address account) external returns (uint) {
+    function registerCollateral(address account) external returns (uint256) {
         // Make sure accountCollateralTokens of `account` is initialized.
         initializeAccountCollateralTokens(account);
 
-        require(msg.sender == address(comptroller), "only comptroller may register collateral for user");
+        require(msg.sender == address(comptroller), "comptroller only");
 
-        uint amount = sub_(accountTokens[account], accountCollateralTokens[account]);
+        uint256 amount = sub_(accountTokens[account], accountCollateralTokens[account]);
         return increaseUserCollateralInternal(account, amount);
     }
 
@@ -176,7 +263,11 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
         // Make sure accountCollateralTokens of `account` is initialized.
         initializeAccountCollateralTokens(account);
 
-        require(msg.sender == address(comptroller), "only comptroller may unregister collateral for user");
+        require(msg.sender == address(comptroller), "comptroller only");
+        require(
+            comptroller.redeemAllowed(address(this), account, accountCollateralTokens[account]) == 0,
+            "comptroller rejection"
+        );
 
         decreaseUserCollateralInternal(account, accountCollateralTokens[account]);
     }
@@ -189,7 +280,7 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @dev This excludes the value of the current message, if any
      * @return The quantity of underlying tokens owned by this contract
      */
-    function getCashPrior() internal view returns (uint) {
+    function getCashPrior() internal view returns (uint256) {
         return internalCash;
     }
 
@@ -198,7 +289,7 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @dev This excludes the value of the current message, if any
      * @return The quantity of underlying tokens owned by this contract
      */
-    function getCashOnChain() internal view returns (uint) {
+    function getCashOnChain() internal view returns (uint256) {
         EIP20Interface token = EIP20Interface(underlying);
         return token.balanceOf(address(this));
     }
@@ -236,30 +327,39 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      *      Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.
      *            See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
-    function doTransferIn(address from, uint amount) internal returns (uint) {
+    function doTransferIn(
+        address from,
+        uint256 amount,
+        bool isNative
+    ) internal returns (uint256) {
+        isNative; // unused
+
         EIP20NonStandardInterface token = EIP20NonStandardInterface(underlying);
-        uint balanceBefore = EIP20Interface(underlying).balanceOf(address(this));
+        uint256 balanceBefore = EIP20Interface(underlying).balanceOf(address(this));
         token.transferFrom(from, address(this), amount);
 
         bool success;
         assembly {
             switch returndatasize()
-                case 0 {                       // This is a non-standard ERC-20
-                    success := not(0)          // set success to true
-                }
-                case 32 {                      // This is a compliant ERC-20
-                    returndatacopy(0, 0, 32)
-                    success := mload(0)        // Set `success = returndata` of external call
-                }
-                default {                      // This is an excessively non-compliant ERC-20, revert.
-                    revert(0, 0)
-                }
+            case 0 {
+                // This is a non-standard ERC-20
+                success := not(0) // set success to true
+            }
+            case 32 {
+                // This is a compliant ERC-20
+                returndatacopy(0, 0, 32)
+                success := mload(0) // Set `success = returndata` of external call
+            }
+            default {
+                // This is an excessively non-compliant ERC-20, revert.
+                revert(0, 0)
+            }
         }
         require(success, "TOKEN_TRANSFER_IN_FAILED");
 
         // Calculate the amount that was *actually* transferred
-        uint balanceAfter = EIP20Interface(underlying).balanceOf(address(this));
-        uint transferredIn = sub_(balanceAfter, balanceBefore);
+        uint256 balanceAfter = EIP20Interface(underlying).balanceOf(address(this));
+        uint256 transferredIn = sub_(balanceAfter, balanceBefore);
         internalCash = add_(internalCash, transferredIn);
         return transferredIn;
     }
@@ -273,23 +373,32 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      *      Note: This wrapper safely handles non-standard ERC-20 tokens that do not return a value.
      *            See here: https://medium.com/coinmonks/missing-return-value-bug-at-least-130-tokens-affected-d67bf08521ca
      */
-    function doTransferOut(address payable to, uint amount) internal {
+    function doTransferOut(
+        address payable to,
+        uint256 amount,
+        bool isNative
+    ) internal {
+        isNative; // unused
+
         EIP20NonStandardInterface token = EIP20NonStandardInterface(underlying);
         token.transfer(to, amount);
 
         bool success;
         assembly {
             switch returndatasize()
-                case 0 {                      // This is a non-standard ERC-20
-                    success := not(0)          // set success to true
-                }
-                case 32 {                     // This is a complaint ERC-20
-                    returndatacopy(0, 0, 32)
-                    success := mload(0)        // Set `success = returndata` of external call
-                }
-                default {                     // This is an excessively non-compliant ERC-20, revert.
-                    revert(0, 0)
-                }
+            case 0 {
+                // This is a non-standard ERC-20
+                success := not(0) // set success to true
+            }
+            case 32 {
+                // This is a complaint ERC-20
+                returndatacopy(0, 0, 32)
+                success := mload(0) // Set `success = returndata` of external call
+            }
+            default {
+                // This is an excessively non-compliant ERC-20, revert.
+                revert(0, 0)
+            }
         }
         require(success, "TOKEN_TRANSFER_OUT_FAILED");
         internalCash = sub_(internalCash, amount);
@@ -304,7 +413,12 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @param tokens The number of tokens to transfer
      * @return Whether or not the transfer succeeded
      */
-    function transferTokens(address spender, address src, address dst, uint tokens) internal returns (uint) {
+    function transferTokens(
+        address spender,
+        address src,
+        address dst,
+        uint256 tokens
+    ) internal returns (uint256) {
         // Make sure accountCollateralTokens of `src` and `dst` are initialized.
         initializeAccountCollateralTokens(src);
         initializeAccountCollateralTokens(dst);
@@ -315,36 +429,30 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
          * bufferTokens = accountTokens[src] - accountCollateralTokens[src]
          * collateralTokens = tokens - bufferTokens
          */
-        uint bufferTokens = sub_(accountTokens[src], accountCollateralTokens[src]);
-        uint collateralTokens = 0;
+        uint256 bufferTokens = sub_(accountTokens[src], accountCollateralTokens[src]);
+        uint256 collateralTokens = 0;
         if (tokens > bufferTokens) {
-            collateralTokens = sub_(tokens, bufferTokens);
+            collateralTokens = tokens - bufferTokens;
         }
 
         /**
          * Since bufferTokens are not collateralized and can be transferred freely, we only check with comptroller
          * whether collateralized tokens can be transferred.
          */
-        uint allowed = comptroller.transferAllowed(address(this), src, dst, collateralTokens);
-        if (allowed != 0) {
-            return failOpaque(Error.COMPTROLLER_REJECTION, FailureInfo.TRANSFER_COMPTROLLER_REJECTION, allowed);
-        }
+        require(comptroller.transferAllowed(address(this), src, dst, collateralTokens) == 0, "comptroller rejection");
 
         /* Do not allow self-transfers */
-        if (src == dst) {
-            return fail(Error.BAD_INPUT, FailureInfo.TRANSFER_NOT_ALLOWED);
-        }
+        require(src != dst, "bad input");
 
         /* Get the allowance, infinite for the account owner */
-        uint startingAllowance = 0;
+        uint256 startingAllowance = 0;
         if (spender == src) {
-            startingAllowance = uint(-1);
+            startingAllowance = uint256(-1);
         } else {
             startingAllowance = transferAllowances[src][spender];
         }
 
         /* Do the calculations, checking for {under,over}flow */
-        uint allowanceNew = sub_(startingAllowance, tokens);
         accountTokens[src] = sub_(accountTokens[src], tokens);
         accountTokens[dst] = add_(accountTokens[dst], tokens);
         if (collateralTokens > 0) {
@@ -356,24 +464,23 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
         }
 
         /* Eat some of the allowance (if necessary) */
-        if (startingAllowance != uint(-1)) {
-            transferAllowances[src][spender] = allowanceNew;
+        if (startingAllowance != uint256(-1)) {
+            transferAllowances[src][spender] = sub_(startingAllowance, tokens);
         }
 
         /* We emit a Transfer event */
         emit Transfer(src, dst, tokens);
 
-        // unused function
-        // comptroller.transferVerify(address(this), src, dst, tokens);
+        comptroller.transferVerify(address(this), src, dst, tokens);
 
-        return uint(Error.NO_ERROR);
+        return uint256(Error.NO_ERROR);
     }
 
     /**
      * @notice Get the account's cToken balances
      * @param account The address of the account
      */
-    function getCTokenBalanceInternal(address account) internal view returns (uint) {
+    function getCTokenBalanceInternal(address account) internal view returns (uint256) {
         if (isCollateralTokenInit[account]) {
             return accountCollateralTokens[account];
         } else {
@@ -390,8 +497,8 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @param amount The amount of collateral user wants to increase
      * @return The actual increased amount of collateral
      */
-    function increaseUserCollateralInternal(address account, uint amount) internal returns (uint) {
-        uint totalCollateralTokensNew = add_(totalCollateralTokens, amount);
+    function increaseUserCollateralInternal(address account, uint256 amount) internal returns (uint256) {
+        uint256 totalCollateralTokensNew = add_(totalCollateralTokens, amount);
         if (collateralCap == 0 || (collateralCap != 0 && totalCollateralTokensNew <= collateralCap)) {
             // 1. If collateral cap is not set,
             // 2. If collateral cap is set but has enough space for this user,
@@ -404,7 +511,7 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
         } else if (collateralCap > totalCollateralTokens) {
             // If the collateral cap is set but the remaining cap is not enough for this user,
             // give the remaining parts to the user.
-            uint gap = sub_(collateralCap, totalCollateralTokens);
+            uint256 gap = sub_(collateralCap, totalCollateralTokens);
             totalCollateralTokens = add_(totalCollateralTokens, gap);
             accountCollateralTokens[account] = add_(accountCollateralTokens[account], gap);
 
@@ -419,8 +526,14 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @param account The address of the account
      * @param amount The amount of collateral user wants to decrease
      */
-    function decreaseUserCollateralInternal(address account, uint amount) internal {
-        require(comptroller.redeemAllowed(address(this), account, amount) == 0, "comptroller rejection");
+    function decreaseUserCollateralInternal(address account, uint256 amount) internal {
+        /*
+         * Return if amount is zero.
+         * Put behind `redeemAllowed` for accuring potential COMP rewards.
+         */
+        if (amount == 0) {
+            return;
+        }
 
         totalCollateralTokens = sub_(totalCollateralTokens, amount);
         accountCollateralTokens[account] = sub_(accountCollateralTokens[account], amount);
@@ -429,9 +542,9 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
     }
 
     struct MintLocalVars {
-        uint exchangeRateMantissa;
-        uint mintTokens;
-        uint actualMintAmount;
+        uint256 exchangeRateMantissa;
+        uint256 mintTokens;
+        uint256 actualMintAmount;
     }
 
     /**
@@ -439,22 +552,30 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @dev Assumes interest has already been accrued up to the current block
      * @param minter The address of the account which is supplying the assets
      * @param mintAmount The amount of the underlying asset to supply
+     * @param isNative The amount is in native or not
      * @return (uint, uint) An error code (0=success, otherwise a failure, see ErrorReporter.sol), and the actual mint amount.
      */
-    function mintFresh(address minter, uint mintAmount) internal returns (uint, uint) {
+    function mintFresh(
+        address minter,
+        uint256 mintAmount,
+        bool isNative
+    ) internal returns (uint256, uint256) {
         // Make sure accountCollateralTokens of `minter` is initialized.
         initializeAccountCollateralTokens(minter);
 
         /* Fail if mint not allowed */
-        uint allowed = comptroller.mintAllowed(address(this), minter, mintAmount);
-        if (allowed != 0) {
-            return (failOpaque(Error.COMPTROLLER_REJECTION, FailureInfo.MINT_COMPTROLLER_REJECTION, allowed), 0);
+        require(comptroller.mintAllowed(address(this), minter, mintAmount) == 0, "comptroller rejection");
+
+        /*
+         * Return if mintAmount is zero.
+         * Put behind `mintAllowed` for accuring potential COMP rewards.
+         */
+        if (mintAmount == 0) {
+            return (uint256(Error.NO_ERROR), 0);
         }
 
         /* Verify market's block number equals current block number */
-        if (accrualBlockNumber != getBlockNumber()) {
-            return (fail(Error.MARKET_NOT_FRESH, FailureInfo.MINT_FRESHNESS_CHECK), 0);
-        }
+        require(accrualBlockNumber == getBlockNumber(), "market not fresh");
 
         MintLocalVars memory vars;
 
@@ -472,7 +593,7 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
          *  in case of a fee. On success, the cToken holds an additional `actualMintAmount`
          *  of cash.
          */
-        vars.actualMintAmount = doTransferIn(minter, mintAmount);
+        vars.actualMintAmount = doTransferIn(minter, mintAmount, isNative);
 
         /*
          * We get the current exchange rate and calculate the number of cTokens to be minted:
@@ -500,31 +621,36 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
         emit Transfer(address(this), minter, vars.mintTokens);
 
         /* We call the defense hook */
-        // unused function
-        // comptroller.mintVerify(address(this), minter, vars.actualMintAmount, vars.mintTokens);
+        comptroller.mintVerify(address(this), minter, vars.actualMintAmount, vars.mintTokens);
 
-        return (uint(Error.NO_ERROR), vars.actualMintAmount);
+        return (uint256(Error.NO_ERROR), vars.actualMintAmount);
     }
 
     struct RedeemLocalVars {
-        uint exchangeRateMantissa;
-        uint redeemTokens;
-        uint redeemAmount;
+        uint256 exchangeRateMantissa;
+        uint256 redeemTokens;
+        uint256 redeemAmount;
     }
 
     /**
      * @notice User redeems cTokens in exchange for the underlying asset
-     * @dev Assumes interest has already been accrued up to the current block
+     * @dev Assumes interest has already been accrued up to the current block. Only one of redeemTokensIn or redeemAmountIn may be non-zero and it would do nothing if both are zero.
      * @param redeemer The address of the account which is redeeming the tokens
-     * @param redeemTokensIn The number of cTokens to redeem into underlying (only one of redeemTokensIn or redeemAmountIn may be non-zero)
-     * @param redeemAmountIn The number of underlying tokens to receive from redeeming cTokens (only one of redeemTokensIn or redeemAmountIn may be non-zero)
+     * @param redeemTokensIn The number of cTokens to redeem into underlying
+     * @param redeemAmountIn The number of underlying tokens to receive from redeeming cTokens
+     * @param isNative The amount is in native or not
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function redeemFresh(address payable redeemer, uint redeemTokensIn, uint redeemAmountIn) internal returns (uint) {
+    function redeemFresh(
+        address payable redeemer,
+        uint256 redeemTokensIn,
+        uint256 redeemAmountIn,
+        bool isNative
+    ) internal returns (uint256) {
         // Make sure accountCollateralTokens of `redeemer` is initialized.
         initializeAccountCollateralTokens(redeemer);
 
-        require(redeemTokensIn == 0 || redeemAmountIn == 0, "one of redeemTokensIn or redeemAmountIn must be zero");
+        require(redeemTokensIn == 0 || redeemAmountIn == 0, "bad input");
 
         RedeemLocalVars memory vars;
 
@@ -556,33 +682,24 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
          * bufferTokens = accountTokens[redeemer] - accountCollateralTokens[redeemer]
          * collateralTokens = redeemTokens - bufferTokens
          */
-        uint bufferTokens = sub_(accountTokens[redeemer], accountCollateralTokens[redeemer]);
-        uint collateralTokens = 0;
+        uint256 bufferTokens = sub_(accountTokens[redeemer], accountCollateralTokens[redeemer]);
+        uint256 collateralTokens = 0;
         if (vars.redeemTokens > bufferTokens) {
-            collateralTokens = sub_(vars.redeemTokens, bufferTokens);
+            collateralTokens = vars.redeemTokens - bufferTokens;
         }
+
+        /* redeemAllowed might check more than user's liquidity. */
+        require(comptroller.redeemAllowed(address(this), redeemer, collateralTokens) == 0, "comptroller rejection");
 
         /* Verify market's block number equals current block number */
-        if (accrualBlockNumber != getBlockNumber()) {
-            return fail(Error.MARKET_NOT_FRESH, FailureInfo.REDEEM_FRESHNESS_CHECK);
-        }
+        require(accrualBlockNumber == getBlockNumber(), "market not fresh");
 
-        /* Fail gracefully if protocol has insufficient cash */
-        if (getCashPrior() < vars.redeemAmount) {
-            return fail(Error.TOKEN_INSUFFICIENT_CASH, FailureInfo.REDEEM_TRANSFER_OUT_NOT_POSSIBLE);
-        }
+        /* Reverts if protocol has insufficient cash */
+        require(getCashPrior() >= vars.redeemAmount, "insufficient cash");
 
         /////////////////////////
         // EFFECTS & INTERACTIONS
         // (No safe failures beyond this point)
-
-        /*
-         * We invoke doTransferOut for the redeemer and the redeemAmount.
-         *  Note: The cToken must handle variations between ERC-20 and ETH underlying.
-         *  On success, the cToken has redeemAmount less of cash.
-         *  doTransferOut reverts if anything goes wrong, since we can't be sure if side effects occurred.
-         */
-        doTransferOut(redeemer, vars.redeemAmount);
 
         /*
          * We calculate the new total supply and redeemer balance, checking for underflow:
@@ -595,9 +712,15 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
         /*
          * We only deallocate collateral tokens if the redeemer needs to redeem them.
          */
-        if (collateralTokens > 0) {
-            decreaseUserCollateralInternal(redeemer, collateralTokens);
-        }
+        decreaseUserCollateralInternal(redeemer, collateralTokens);
+
+        /*
+         * We invoke doTransferOut for the redeemer and the redeemAmount.
+         *  Note: The cToken must handle variations between ERC-20 and ETH underlying.
+         *  On success, the cToken has redeemAmount less of cash.
+         *  doTransferOut reverts if anything goes wrong, since we can't be sure if side effects occurred.
+         */
+        doTransferOut(redeemer, vars.redeemAmount, isNative);
 
         /* We emit a Transfer event, and a Redeem event */
         emit Transfer(redeemer, address(this), vars.redeemTokens);
@@ -606,7 +729,7 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
         /* We call the defense hook */
         comptroller.redeemVerify(address(this), redeemer, vars.redeemAmount, vars.redeemTokens);
 
-        return uint(Error.NO_ERROR);
+        return uint256(Error.NO_ERROR);
     }
 
     /**
@@ -619,21 +742,32 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
      * @param seizeTokens The number of cTokens to seize
      * @return uint 0=success, otherwise a failure (see ErrorReporter.sol for details)
      */
-    function seizeInternal(address seizerToken, address liquidator, address borrower, uint seizeTokens) internal returns (uint) {
+    function seizeInternal(
+        address seizerToken,
+        address liquidator,
+        address borrower,
+        uint256 seizeTokens
+    ) internal returns (uint256) {
         // Make sure accountCollateralTokens of `liquidator` and `borrower` are initialized.
         initializeAccountCollateralTokens(liquidator);
         initializeAccountCollateralTokens(borrower);
 
         /* Fail if seize not allowed */
-        uint allowed = comptroller.seizeAllowed(address(this), seizerToken, liquidator, borrower, seizeTokens);
-        if (allowed != 0) {
-            return failOpaque(Error.COMPTROLLER_REJECTION, FailureInfo.LIQUIDATE_SEIZE_COMPTROLLER_REJECTION, allowed);
+        require(
+            comptroller.seizeAllowed(address(this), seizerToken, liquidator, borrower, seizeTokens) == 0,
+            "comptroller rejection"
+        );
+
+        /*
+         * Return if seizeTokens is zero.
+         * Put behind `seizeAllowed` for accuring potential COMP rewards.
+         */
+        if (seizeTokens == 0) {
+            return uint256(Error.NO_ERROR);
         }
 
         /* Fail if borrower = liquidator */
-        if (borrower == liquidator) {
-            return fail(Error.INVALID_ACCOUNT_PAIR, FailureInfo.LIQUIDATE_SEIZE_LIQUIDATOR_IS_BORROWER);
-        }
+        require(borrower != liquidator, "invalid account pair");
 
         /*
          * We calculate the new borrower and liquidator token balances and token collateral balances, failing on underflow/overflow:
@@ -653,9 +787,8 @@ contract CCollateralCapErc20 is CToken, CCollateralCapErc20Interface {
         emit UserCollateralChanged(liquidator, accountCollateralTokens[liquidator]);
 
         /* We call the defense hook */
-        // unused function
-        // comptroller.seizeVerify(address(this), seizerToken, liquidator, borrower, seizeTokens);
+        comptroller.seizeVerify(address(this), seizerToken, liquidator, borrower, seizeTokens);
 
-        return uint(Error.NO_ERROR);
+        return uint256(Error.NO_ERROR);
     }
 }

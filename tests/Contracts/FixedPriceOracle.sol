@@ -1,20 +1,20 @@
 pragma solidity ^0.5.16;
 
-import "../../contracts/PriceOracle.sol";
+import "../../contracts/PriceOracle/PriceOracle.sol";
 
 contract FixedPriceOracle is PriceOracle {
-    uint public price;
+    uint256 public price;
 
-    constructor(uint _price) public {
+    constructor(uint256 _price) public {
         price = _price;
     }
 
-    function getUnderlyingPrice(CToken cToken) public view returns (uint) {
+    function getUnderlyingPrice(CToken cToken) public view returns (uint256) {
         cToken;
         return price;
     }
 
-    function assetPrices(address asset) public view returns (uint) {
+    function assetPrices(address asset) public view returns (uint256) {
         asset;
         return price;
     }

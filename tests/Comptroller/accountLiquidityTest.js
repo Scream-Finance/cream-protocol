@@ -14,10 +14,11 @@ describe('Comptroller', () => {
 
   describe('liquidity', () => {
     it("fails if a price has not been set", async () => {
+      const user = accounts[1], amount = 1e6;
       const cToken = await makeCToken({supportMarket: true});
-      await enterMarkets([cToken], accounts[1]);
-      let result = await call(cToken.comptroller, 'getAccountLiquidity', [accounts[1]]);
-      expect(result).toHaveTrollError('PRICE_ERROR');
+      await enterMarkets([cToken], user);
+      await quickMint(cToken, user, amount);
+      await expect(call(cToken.comptroller, 'getAccountLiquidity', [user])).rejects.toRevert('revert price error');;
     });
 
     it("allows a borrow up to collateralFactor, but not more", async () => {

@@ -11,7 +11,7 @@ Macro PricedComptroller closeFactor=0.1 maxAssets=20
     PriceOracle Deploy Simple
     ComptrollerImpl Deploy ScenarioG1 ScenComptrollerG1
     Unitroller SetPendingImpl ScenComptrollerG1
-    PriceOracleProxy Deploy Admin (PriceOracle Address) (Address Zero) (Address Zero) (Address Zero) (Address Zero) (Address Zero) -- if listing cEther use ListedEtherToken to replace proxy
+    PriceOracleProxy Deploy Admin (PriceOracle Address) (Address Zero) (Address Zero) -- if listing cEther use ListedEtherToken to replace proxy
     ComptrollerImpl ScenComptrollerG1 BecomeG1 (PriceOracleProxy Address) closeFactor maxAssets
     ComptrollerImpl Deploy Scenario ScenComptroller
     Unitroller SetPendingImpl ScenComptroller
@@ -23,7 +23,7 @@ Macro NewComptroller price=1.0 closeFactor=0.1 maxAssets=20
     PriceOracle Deploy Fixed price
     ComptrollerImpl Deploy ScenarioG1 ScenComptrollerG1
     Unitroller SetPendingImpl ScenComptrollerG1
-    PriceOracleProxy Deploy Admin (PriceOracle Address) (Address Zero) (Address Zero) (Address Zero) (Address Zero) (Address Zero) -- if listing cEther use ListedEtherToken to replace proxy
+    PriceOracleProxy Deploy Admin (PriceOracle Address) (Address Zero) (Address Zero) -- if listing cEther use ListedEtherToken to replace proxy
     ComptrollerImpl ScenComptrollerG1 BecomeG1 (PriceOracleProxy Address) closeFactor maxAssets
     --g2
     ComptrollerImpl Deploy StandardG2 ComptrollerG2
@@ -38,14 +38,14 @@ Macro NewComptroller price=1.0 closeFactor=0.1 maxAssets=20
     Unitroller SetPendingImpl ScenComptroller
     ComptrollerImpl ScenComptroller Become
 
-Macro NewCToken erc20 cToken borrowRate=0.000005 initialExchangeRate=2e9 decimals=8 tokenType=Standard delegatorType=CErc20DelegatorScenario cTokenType=CErc20DelegateScenario admin=Admin becomeImplementationData="0x0"
+Macro NewCToken erc20 cToken borrowRate=0.000005 initialExchangeRate=2e9 decimals=8 tokenType=Standard delegatorType=CCollateralCapErc20DelegatorScenario cTokenType=CCollateralCapErc20DelegateScenario admin=Admin becomeImplementationData="0x0"
     Erc20 Deploy tokenType erc20 erc20
     InterestRateModel Deploy Fixed StdInterest borrowRate -- Note: interest rate model probably shouldn't be global
     CTokenDelegate Deploy cTokenType cErc20Delegate
     CToken Deploy delegatorType cToken cToken (Erc20 erc20 Address) (Comptroller Address) (InterestRateModel StdInterest Address) initialExchangeRate decimals admin (CTokenDelegate cErc20Delegate Address) becomeImplementationData
 
 -- Same as NewCToken but does not deploy an ERC20. Used for special ERC20s that are initialized differently
-Macro NewCTokenBringERC20 erc20 cToken borrowRate=0.000005 initialExchangeRate=2e9 decimals=8 delegatorType=CErc20DelegatorScenario cTokenType=CErc20DelegateScenario admin=Admin becomeImplementationData="0x0"
+Macro NewCTokenBringERC20 erc20 cToken borrowRate=0.000005 initialExchangeRate=2e9 decimals=8 delegatorType=CCollateralCapErc20DelegatorScenario cTokenType=CCollateralCapErc20DelegateScenario admin=Admin becomeImplementationData="0x0"
     InterestRateModel Deploy Fixed StdInterest borrowRate -- Note: interest rate model probably shouldn't be global
     CTokenDelegate Deploy cTokenType cErc20Delegate
     CToken Deploy delegatorType cToken cToken (Erc20 erc20 Address) (Comptroller Address) (InterestRateModel StdInterest Address) initialExchangeRate decimals admin (CTokenDelegate cErc20Delegate Address) becomeImplementationData
@@ -59,23 +59,23 @@ Macro NewEtherToken cToken borrowRate=0.000005 initialExchangeRate=2e9 decimals=
     InterestRateModel Deploy Fixed StdInterest borrowRate -- Note: interest rate model probably shouldn't be global
     CToken Deploy CEtherScenario cToken cToken (Comptroller Address) (InterestRateModel StdInterest Address) initialExchangeRate decimals admin
 
-Macro ListedCToken erc20 cToken borrowRate=0.000005 initialExchangeRate=2e9 decimals=8 tokenType=Standard delegatorType=CErc20DelegatorScenario cTokenType=CErc20DelegateScenario admin=Admin
+Macro ListedCToken erc20 cToken borrowRate=0.000005 initialExchangeRate=2e9 decimals=8 tokenType=Standard delegatorType=CCollateralCapErc20DelegatorScenario cTokenType=CCollateralCapErc20DelegateScenario admin=Admin version=1
     NewCToken erc20 cToken borrowRate initialExchangeRate decimals tokenType delegatorType cTokenType admin
-    Comptroller SupportMarket cToken
+    Comptroller SupportMarket cToken version
 
-Macro ListedCTokenImmutable erc20 cToken borrowRate=0.000005 initialExchangeRate=2e9 decimals=8 tokenType=Standard cTokenType=Scenario admin=Admin
+Macro ListedCTokenImmutable erc20 cToken borrowRate=0.000005 initialExchangeRate=2e9 decimals=8 tokenType=Standard cTokenType=Scenario admin=Admin version=0
     NewCTokenImmutable erc20 cToken borrowRate initialExchangeRate decimals tokenType cTokenType admin
-    Comptroller SupportMarket cToken
+    Comptroller SupportMarket cToken version
 
-Macro ListedEtherToken cToken borrowRate=0.000005 initialExchangeRate=2e9 decimals=8 admin=Admin
+Macro ListedEtherToken cToken borrowRate=0.000005 initialExchangeRate=2e9 decimals=8 admin=Admin version=0
     NewEtherToken cToken borrowRate initialExchangeRate decimals admin
-    Comptroller SupportMarket cToken
-    PriceOracleProxy Deploy Admin (PriceOracle Address) (Address cETH) (Address Zero) (Address Zero) (Address Zero) (Address Zero)
+    Comptroller SupportMarket cToken version
+    PriceOracleProxy Deploy Admin (PriceOracle Address) (Address cETH) (Address Zero)
     Comptroller SetPriceOracle (PriceOracleProxy Address)
 
-Macro ListedEtherTokenMinted cToken borrowRate=0.000005 initialExchangeRate=2e9 decimals=8 admin=Admin
+Macro ListedEtherTokenMinted cToken borrowRate=0.000005 initialExchangeRate=2e9 decimals=8 admin=Admin version=0
     NewEtherToken cToken borrowRate initialExchangeRate decimals admin
-    Comptroller SupportMarket cToken
+    Comptroller SupportMarket cToken version
     CallMintEth Root 1e18 cToken
 
 Macro SetPriceCF cToken price collateralFactor
@@ -96,6 +96,10 @@ Macro Prep user amount erc20 token allowanceAmount=Nothing
     Erc20 erc20 Faucet user amount
     From user (Erc20 erc20 Approve token (Default allowanceAmount amount))
 
+Macro WETHPrep user amount erc20 token allowanceAmount=Nothing
+    From user (Trx GasPrice 0 (Trx Value amount (Erc20 erc20 Deposit)))
+    From user (Erc20 erc20 Approve token (Default allowanceAmount amount))
+
 Macro Allow user token
     From user (Erc20 (CToken token Underlying) Approve token UInt256Max)
 
@@ -104,6 +108,9 @@ Macro AccrueInterest token
 
 Macro Mint user amount token
     From user (CToken token Mint amount)
+
+Macro MintNative user amount token
+    From user (Trx GasPrice 0 (Trx Value amount (CToken token MintNative)))
 
 Macro SendMintEth user amount token
     From user (Trx GasPrice 0 (Trx Value amount (Send token amount)))
@@ -114,11 +121,17 @@ Macro CallMintEth user amount token
 Macro Redeem user amount token
     From user (CToken token Redeem amount)
 
+Macro RedeemNative user amount token
+    Trx GasPrice 0 (From user (CToken token RedeemNative amount))
+
 Macro RedeemEth user amount token
     Trx GasPrice 0 (From user (CToken token Redeem amount))
 
 Macro RedeemUnderlying user amount token
     From user (CToken token RedeemUnderlying amount)
+
+Macro RedeemUnderlyingNative user amount token
+    Trx GasPrice 0 (From user (CToken token RedeemUnderlyingNative amount))
 
 Macro RedeemUnderlyingEth user amount token
     Trx GasPrice 0 (From user (CToken token RedeemUnderlying amount))
@@ -129,14 +142,23 @@ Macro BorrowEth user amount token
 Macro Borrow user amount token
     From user (CToken token Borrow amount)
 
+Macro BorrowNative user amount token
+    Trx GasPrice 0 (From user (CToken token BorrowNative amount))
+
 Macro RepayBorrow user amount token
     From user (CToken token RepayBorrow amount)
+
+Macro RepayBorrowNative user amount token
+    From user (Trx GasPrice 0 (Trx Value amount (CToken token RepayBorrowNative)))
 
 Macro RepayBorrowEth user amount token
     From user (Trx GasPrice 0 (Trx Value amount (CToken token RepayBorrow)))
 
 Macro RepayBorrowBehalf user behalf amount token
     From user (CToken token RepayBorrowBehalf behalf amount)
+
+Macro RepayBorrowBehalfNative user behalf amount token
+    From user (Trx GasPrice 0 (Trx Value amount (CToken token RepayBorrowBehalfNative behalf)))
 
 Macro RepayBorrowEthBehalf user behalf amount token
     From user (Trx GasPrice 0 (Trx Value amount (CToken token RepayBorrowBehalf behalf)))
@@ -156,8 +178,12 @@ Macro Seize amount token caller liquidator borrower
 Macro EvilSeize token amount treasure seizer seizee
     CToken token EvilSeize treasure seizer seizee amount
 
-Macro Support cToken collateralFactor=0.5
-    Comptroller SupportMarket cToken
+Macro OldSupport cToken collateralFactor=0.5
+    Comptroller OldSupportMarket cToken
+    Comptroller SetCollateralFactor cToken collateralFactor
+
+Macro Support cToken collateralFactor=0.5 version=1
+    Comptroller SupportMarket cToken version
     Comptroller SetCollateralFactor cToken collateralFactor
 
 Macro SetCollateralFactor cToken collateralFactor=0.5
